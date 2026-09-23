@@ -1,5 +1,12 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { IncomingMessage, ServerResponse } from 'http';
 import { GoogleGenAI } from '@google/genai';
+
+type ApiRequest = IncomingMessage & { body?: any; query?: any };
+type ApiResponse = ServerResponse & {
+  status: (code: number) => ApiResponse;
+  json: (data: any) => ApiResponse;
+  send: (body: any) => ApiResponse;
+};
 
 interface MatchPrediction {
   event: string;
@@ -362,7 +369,7 @@ function generateCuratedMatches(sport: string, date: string, startTime: string):
   };
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req: ApiRequest, res: ApiResponse) {
   // Set CORS headers
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', '*');
