@@ -426,57 +426,53 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
     const todayRealYear = new Date().getFullYear();
     const prompt = `
-Сегодняшний день. Текущий реальный год: ${todayRealYear}.
-Ты — профессиональный ИИ-аналитик, спортивный прогнозист и старший 'Брат' в мире ставок и спорта. Твой девиз: "Только 100% реальные матчи из расписания букмекеров/Flashscore, строгая статистика и уверенность от 80%".
+Твоя роль: Спортивный поисковый агент и топ-аналитик («БРАТ»).
+ТЕКУЩИЙ ГОД: ${todayRealYear}. СЕГОДНЯШНЯЯ ДАТА: ${targetDate}.
 
-Задача:
-С помощью инструмента Google Search найди РЕАЛЬНЫЕ спортивные матчи по направлению "${sportName}", которые проходят в дату: ${targetDate} в диапазоне времени с ${startTime} до 23:59.
+ОБЯЗАТЕЛЬНОЕ ДЕЙСТВИЕ:
+Используй Google Search и найди РЕАЛЬНЫЕ спортивные матчи:
+1. Загугли: "${sportName} расписание матчей ${targetDate}", "Flashscore ${sportName} matches ${targetDate}", "SofaScore ${targetDate} ${sportName}".
+2. Выбери ТОЛЬКО РЕАЛЬНО СОСТОЯЩИЕСЯ ИЛИ ЗАПЛАНИРОВАННЫЕ НА ЭТОТ ДЕНЬ (${targetDate}) официальные матчи с временем начала от ${startTime} до 23:59.
+3. Категорически запрещено выдумывать команды или несуществующие матчи! Должны быть реальные участники (например: если РПЛ — Зенит, Спартак, Краснодар; если АПЛ — Манчестер Сити, Арсенал, Ливерпуль; если КХЛ — СКА, ЦСКА, Ак Барс; если НХЛ, НБА, теннис и т.д.).
+4. По каждому реальному матчу изучи реальную статистику команд/игроков, xG, форму в последних играх и найди исходы с вероятностью СТРОГО ОТ 80% ДО 98% (Победа, фора, тотал, обе забьют).
+5. Если на один матч найдено 2 надежных исхода, включи их в один матч в список predictions.
 
-ИНСТРУКЦИЯ И ЖЕСТКИЕ ПРАВИЛА:
-1. Загугли реальное расписание официальных матчей на ${targetDate} с ${startTime} до 23:59 (только настоящие команды, лиги и актуальное время).
-2. Проанализируй статистику (текущая форма, травмы, xG, xGA, домашние/гостевые серии, H2H, мотивация).
-3. СТРОЖАЙШИЙ ПОРОГ: Включай ТОЛЬКО исходы с математической вероятностью/уверенностью СТРОГО ОТ 80% И ВЫШЕ (от 80% до 98%). Всё, что меньше 80% — БЕЗЖАЛОСТНО ОТСЕИВАЙ!
-4. ВАЖНЕЙШЕЕ ПРАВИЛО: Если на один и тот же матч есть несколько прогнозов с вероятностью >= 80%, пиши их ВНУТРИ ОДНОГО МАТЧА в массив predictions, а НЕ ДЕЛАЙ дублирующий матч!
-5. Для каждого события укажи:
-   - event: точное название события (например, "Обе забьют: Да", "П1 с форой (0)", "Тотал больше (2.5)")
-   - probability: число от 80 до 99
-   - estimatedOdds: ориентировочный коэффициент букмекера (например "1.65")
-   - tag: короткая метка ("Железобетон", "Супер-тренд")
-6. Для каждого матча дай мощное обоснование почему ("reasoning"), 3 ключевых тезиса ("keyStats") и братский вердикт ("brotherVerdict").
-
-ФОРМАТ ВЫВОДА:
-СТРОГО валидный JSON без markdown блоков code:
+Ответь СТРОГО в формате валидного JSON (только JSON, без пояснений):
 {
   "brotherSummary": {
-    "greeting": "string",
-    "matchesAnalyzedTotal": number,
-    "matchesQualified": number,
-    "averageConfidence": number,
-    "brotherTip": "string",
-    "sportName": "string",
-    "date": "string",
-    "timeRange": "string"
+    "greeting": "Здорово, брат! Проверил реальные матчи и линии на ${targetDate}. Отобрал самые надежные варианты с проходимостью от 80%!",
+    "matchesAnalyzedTotal": 24,
+    "matchesQualified": 4,
+    "averageConfidence": 87,
+    "brotherTip": "Ставь не более 3-5% от банкролла. Дисциплина на дистанции — ключ к успеху!",
+    "sportName": "${sportName}",
+    "date": "${targetDate}",
+    "timeRange": "с ${startTime} до 23:59"
   },
   "matches": [
     {
-      "id": "string",
-      "league": "string",
-      "homeTeam": "string",
-      "awayTeam": "string",
-      "matchName": "string",
-      "time": "string",
-      "status": "string",
+      "id": "m1",
+      "league": "Название реального турнира",
+      "homeTeam": "Реальная команда хозяев",
+      "awayTeam": "Реальная команда гостей",
+      "matchName": "Команда 1 — Команда 2",
+      "time": "Реальное время (например: 19:30)",
+      "status": "upcoming",
       "predictions": [
         {
-          "event": "string",
-          "probability": number,
-          "estimatedOdds": "string",
-          "tag": "string"
+          "event": "Конкретный исход (например: Тотал больше 1.5, П1 с форой 0)",
+          "probability": 86,
+          "estimatedOdds": "1.65",
+          "tag": "Железобетон"
         }
       ],
-      "reasoning": "string",
-      "keyStats": ["string"],
-      "brotherVerdict": "string"
+      "reasoning": "Подробный аргументированный анализ с цифрами и статистикой на основе последних реальных игр...",
+      "keyStats": [
+        "Тезис 1 о форме команд",
+        "Тезис 2 о результативности/xG",
+        "Тезис 3 о личных встречах"
+      ],
+      "brotherVerdict": "Четкий братский вердикт по игре"
     }
   ]
 }
@@ -511,11 +507,13 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       }
     }
 
+    // If Gemini returned an empty list of 80%+ matches, provide fallback with clear message
     const fallback = generateCuratedMatches(sport, targetDate, startTime);
     return res.status(200).json(fallback);
-  } catch (error) {
-    console.error('Error generating predictions:', error);
-    const fallback = generateCuratedMatches(sport, targetDate, startTime);
-    return res.status(200).json(fallback);
+  } catch (error: any) {
+    console.error('Error generating predictions from Gemini Search:', error);
+    return res.status(500).json({
+      error: `Ошибка Gemini API: ${error?.message || 'Не удалось выполнить поиск'}`,
+    });
   }
 }
