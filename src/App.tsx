@@ -78,6 +78,7 @@ export default function App() {
   const [loadingStage, setLoadingStage] = useState<number>(0);
   const [scannedCount, setScannedCount] = useState<number>(0);
   const [data, setData] = useState<ApiResponse | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [expressCopied, setExpressCopied] = useState<boolean>(false);
   const [confidenceFilter, setConfidenceFilter] = useState<number>(80);
@@ -95,6 +96,7 @@ export default function App() {
     setLoading(true);
     setLoadingStage(0);
     setScannedCount(0);
+    setErrorMessage(null);
     setData(null);
 
     const stageInterval = setInterval(() => {
@@ -117,7 +119,7 @@ export default function App() {
       });
 
       if (!response.ok) {
-        throw new Error('Server error');
+        throw new Error(`Ошибка сервера (${response.status})`);
       }
 
       const result: ApiResponse = await response.json();
@@ -127,9 +129,12 @@ export default function App() {
         setData(result);
         setLoading(false);
       }, 3400);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
       clearInterval(stageInterval);
+      setErrorMessage(
+        err?.message || 'Не удалось получить данные с сервера. Проверьте переменную окружения GEMINI_API_KEY на Vercel.'
+      );
       setLoading(false);
     }
   };
@@ -440,6 +445,19 @@ ${items}
               })}
             </div>
           </section>
+        )}
+
+        {/* Error notification banner if any */}
+        {errorMessage && (
+          <div className="rounded-2xl bg-rose-950/40 border border-rose-500/40 p-4 text-sm text-rose-200 flex items-start gap-3 backdrop-blur-md">
+            <span className="text-xl">⚠️</span>
+            <div className="space-y-1">
+              <div className="font-bold text-white">Внимание: {errorMessage}</div>
+              <div className="text-xs text-rose-300/80">
+                Убедитесь, что в панели Vercel (Project Settings → Environment Variables) добавлена переменная <code className="bg-black/40 px-1 py-0.5 rounded text-amber-300">GEMINI_API_KEY</code>.
+              </div>
+            </div>
+          </div>
         )}
 
         {/* RESULTS SECTION: Aesthetic Summary & Required Table */}
