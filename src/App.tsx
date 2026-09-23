@@ -62,8 +62,15 @@ const SPORTS = [
 ];
 
 export default function App() {
-  const todayStr = new Date().toISOString().split('T')[0];
+  const getLocalDateString = (d: Date = new Date()) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   const now = new Date();
+  const todayStr = getLocalDateString(now);
   const currentHours = String(now.getHours()).padStart(2, '0');
   const currentMinutes = String(now.getMinutes()).padStart(2, '0');
   const defaultTimeStr = `${currentHours}:${currentMinutes}`;
@@ -85,11 +92,11 @@ export default function App() {
   const [expandedReasoning, setExpandedReasoning] = useState<Record<string, boolean>>({});
 
   const analysisSteps = [
-    'Сканирование всех матчей и турниров до конца дня...',
-    'Сбор xG-метрик, текущих кондиций, составов и травм...',
+    'Поиск реального расписания матчей через Google Search...',
+    'Сбор xG-метрик, текущих составов, кондиций и травм...',
     'Математическое моделирование вероятностей исходов...',
     'Фильтрация: исключение событий с вероятностью ниже 80%...',
-    'Формирование экспертного аналитического обоснования...',
+    'Формирование экспертного братского обоснования...',
   ];
 
   const handleAnalyze = async () => {
@@ -128,7 +135,7 @@ export default function App() {
         clearInterval(stageInterval);
         setData(result);
         setLoading(false);
-      }, 3400);
+      }, 1500);
     } catch (err: any) {
       console.error(err);
       clearInterval(stageInterval);
@@ -138,11 +145,6 @@ export default function App() {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    handleAnalyze();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const filteredMatches = data?.matches
     ? data.matches.filter((m) =>
@@ -207,7 +209,7 @@ ${items}
   const setQuickDate = (offsetDays: number) => {
     const d = new Date();
     d.setDate(d.getDate() + offsetDays);
-    setSelectedDate(d.toISOString().split('T')[0]);
+    setSelectedDate(getLocalDateString(d));
   };
 
   return (
@@ -458,6 +460,23 @@ ${items}
               </div>
             </div>
           </div>
+        )}
+
+        {/* Initial Welcome State (Before user presses ПРОГНОЗ) */}
+        {!loading && !data && !errorMessage && (
+          <section className="rounded-3xl bg-[#0D111A]/60 border border-white/[0.06] p-8 sm:p-12 text-center shadow-xl backdrop-blur-xl space-y-4">
+            <div className="w-14 h-14 mx-auto rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+              <Zap className="w-7 h-7" />
+            </div>
+            <div className="max-w-md mx-auto space-y-2">
+              <h3 className="font-extrabold text-white text-lg sm:text-xl">
+                Готов к глубокому аудиту линии
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
+                Выбери вид спорта, дату и временной отрезок, затем нажми кнопку <span className="text-emerald-400 font-bold">«ПРОГНОЗ»</span>. ИИ через Google Search просканирует реальные расписания и отфильтрует только железобетонные исходы с вероятностью от 80%.
+              </p>
+            </div>
+          </section>
         )}
 
         {/* RESULTS SECTION: Aesthetic Summary & Required Table */}
