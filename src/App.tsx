@@ -234,6 +234,13 @@ ${items}
               БРАТ
             </span>
           </div>
+
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              1 Batch = 1 RPM (Free Tier Safe)
+            </span>
+          </div>
         </div>
       </header>
 

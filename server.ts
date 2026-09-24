@@ -4,6 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
+import { predictionCache } from './api/cache';
 
 dotenv.config();
 
@@ -527,6 +528,14 @@ function generateCuratedMatches(sport: string, date: string, startTime: string):
 app.post('/api/analyze-matches', async (req: Request, res: Response) => {
   const { sport = 'football', date, startTime = '00:00' } = req.body;
 
+  const targetDate = date || new Date().toISOString().split('T')[0];
+  const cacheKey = `${sport}_${targetDate}_${startTime}`;
+
+  const cached = predictionCache.get<BrotherResponse>(cacheKey);
+  if (cached) {
+    return res.json(cached);
+  }
+
   const sportNamesMap: Record<string, string> = {
     football: 'Футбол (Футбол / RPL, АПЛ, ЛЧ, Ла Лига, Серия А и др.)',
     hockey: 'Хоккей (КХЛ, НХЛ, ВХЛ)',
@@ -536,7 +545,6 @@ app.post('/api/analyze-matches', async (req: Request, res: Response) => {
   };
 
   const sportName = sportNamesMap[sport] || 'Спорт';
-  const targetDate = date || new Date().toISOString().split('T')[0];
 
   const apiKey = process.env.GEMINI_API_KEY;
 
@@ -629,6 +637,7 @@ app.post('/api/analyze-matches', async (req: Request, res: Response) => {
       parsed.matches = parsed.matches.filter((m) => m.predictions.length > 0);
 
       if (parsed.matches.length > 0) {
+        predictionCache.set(cacheKey, parsed, 600);
         return res.json(parsed);
       }
     }

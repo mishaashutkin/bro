@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'http';
 import { GoogleGenAI } from '@google/genai';
+import { predictionCache } from './cache';
 
 type ApiRequest = IncomingMessage & { body?: any; query?: any };
 type ApiResponse = ServerResponse & {
@@ -398,6 +399,14 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
   const { sport = 'football', date, startTime = '00:00' } = body || {};
   const targetDate = date || new Date().toISOString().split('T')[0];
+
+  // 1. Check in-memory cache to save 100% of API quota on repeated calls (TTL 10 minutes)
+  const cacheKey = `${sport}_${targetDate}_${startTime}`;
+  const cachedResult = predictionCache.get<BrotherResponse>(cacheKey);
+  if (cachedResult) {
+    return res.status(200).json(cachedResult);
+  }
+
   const apiKey = process.env.GEMINI_API_KEY;
 
   if (!apiKey) {
@@ -416,7 +425,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     });
 
     const sportNamesMap: Record<string, string> = {
-      football: 'Футбол (Футбол / RPL, АПЛ, ЛЧ, Ла Лига, Серия А и др.)',
+      football: 'Футбол (Футбол / RPL, АПЛ, ЛЧ, Ла Лига, Серия А, Бундеслига и др.)',
       hockey: 'Хоккей (КХЛ, НХЛ, ВХЛ)',
       basketball: 'Баскетбол (НБА, Евролига, Единая лига ВТБ)',
       tennis: 'Теннис (ATP, WTA турниры)',
@@ -503,6 +512,8 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       });
       parsed.matches = parsed.matches.filter((m) => m.predictions.length > 0);
       if (parsed.matches.length > 0) {
+        // Cache result for 10 minutes to save RPM and quota
+        predictionCache.set(cacheKey, parsed, 600);
         return res.status(200).json(parsed);
       }
     }
