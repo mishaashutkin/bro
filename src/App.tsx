@@ -143,7 +143,19 @@ export default function App() {
         }),
       });
 
-      const result: ApiResponse = await response.json();
+      const rawText = await response.text();
+      let result: ApiResponse;
+      try {
+        result = JSON.parse(rawText);
+      } catch {
+        if (response.status === 504) {
+          throw new Error('Таймаут Vercel (504): Поиск данных занял слишком много времени. Попробуйте еще раз.');
+        } else if (response.status === 404) {
+          throw new Error('Эндпоинт API не найден (404). Убедитесь, что серверная функция развернута на Vercel.');
+        } else {
+          throw new Error(`Ошибка сервера (${response.status}): ${rawText.slice(0, 180)}`);
+        }
+      }
 
       if (!response.ok) {
         throw new Error(result.error || `Ошибка сервера (${response.status})`);
@@ -564,8 +576,8 @@ ${items}
             <span className="text-xl">⚠️</span>
             <div className="space-y-1">
               <div className="font-bold text-white">Внимание: {errorMessage}</div>
-              <div className="text-xs text-rose-300/80">
-                Убедитесь, что в панели Vercel (Project Settings → Environment Variables) добавлена переменная <code className="bg-black/40 px-1 py-0.5 rounded text-amber-300">GEMINI_API_KEY</code>.
+              <div className="text-xs text-rose-300/80 leading-relaxed">
+                Добавьте переменную окружения <code className="bg-black/50 px-1.5 py-0.5 rounded text-amber-300 font-mono">GEMINI_API_KEY</code> в настройках (Secrets в AI Studio, либо Environment Variables в Vercel, либо в файле <code className="bg-black/50 px-1.5 py-0.5 rounded text-amber-300 font-mono">.env</code>).
               </div>
             </div>
           </div>

@@ -10,16 +10,38 @@ interface VercelResponse {
 }
 
 import { GoogleGenAI } from '@google/genai';
-import { predictionCache } from './cache.js';
 
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY || '',
-  httpOptions: {
-    headers: {
-      'User-Agent': 'aistudio-build',
-    },
-  },
-});
+// Maximum execution duration for Vercel Serverless Function (Hobby up to 60s)
+export const maxDuration = 60;
+
+// Self-contained in-memory cache to prevent missing module resolution errors on Vercel
+interface CacheEntry<T> {
+  data: T;
+  expiresAt: number;
+}
+
+class MemoryCache {
+  private cache = new Map<string, CacheEntry<any>>();
+
+  get<T>(key: string): T | null {
+    const entry = this.cache.get(key);
+    if (!entry) return null;
+    if (Date.now() > entry.expiresAt) {
+      this.cache.delete(key);
+      return null;
+    }
+    return entry.data as T;
+  }
+
+  set<T>(key: string, data: T, ttlSeconds: number = 600): void {
+    this.cache.set(key, {
+      data,
+      expiresAt: Date.now() + ttlSeconds * 1000,
+    });
+  }
+}
+
+const localCache = new MemoryCache();
 
 export interface MatchPrediction {
   event: string;
@@ -84,7 +106,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const cacheKey = `${sport}_${targetDate}_${cleanStartTime}_${cleanEndTime}_${cleanCustomQuery}`;
 
-  const cached = predictionCache.get<BrotherResponse>(cacheKey);
+  const cached = localCache.get<BrotherResponse>(cacheKey);
   if (cached) {
     return res.status(200).json(cached);
   }
@@ -98,13 +120,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   };
 
   const sportName = sportNamesMap[sport] || 'Спорт';
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = (process.env.GEMINI_API_KEY || '').trim();
 
   if (!apiKey) {
     return res.status(500).json({
-      error: 'Ключ GEMINI_API_KEY не обнаружен на Vercel. Добавьте его в Project Settings → Environment Variables.',
+      error: 'Ключ GEMINI_API_KEY не обнаружен на Vercel. Добавьте его в Project Settings → Environment Variables и обязательно сделайте Redeploy.',
     });
   }
+
+  const ai = new GoogleGenAI({
+    apiKey,
+    httpOptions: {
+      headers: {
+        'User-Agent': 'aistudio-build',
+      },
+    },
+  });
 
   const todayRealYear = new Date().getFullYear();
 
@@ -225,7 +256,7 @@ ${customFilterInstruction}
           : `В диапазоне с ${cleanStartTime} до ${cleanEndTime} на ${targetDate} событий с вероятностью от 80% не обнаружено.`;
       }
 
-      predictionCache.set(cacheKey, parsed, 600);
+      localCache.set(cacheKey, parsed, 600);
       return res.status(200).json(parsed);
     }
 
@@ -234,8 +265,21 @@ ${customFilterInstruction}
     });
   } catch (error: any) {
     console.error('Error generating predictions from Gemini API:', error);
+    const rawMsg = error?.message || String(error);
+
+    let userFriendlyError = `Ошибка Gemini API: ${rawMsg}`;
+    if (rawMsg.includes('API_KEY_INVALID') || rawMsg.includes('API key not valid') || rawMsg.includes('401')) {
+      userFriendlyError = 'Неверный API ключ Gemini (API_KEY_INVALID). Проверьте ключ в Vercel: Project Settings → Environment Variables.';
+    } else if (rawMsg.includes('User location is not supported') || rawMsg.includes('location')) {
+      userFriendlyError = 'Региональное ограничение Google (User location is not supported). В настройках Vercel Function Region выберите регион США (us-east-1) или Франкфурт (fra1).';
+    } else if (rawMsg.includes('RESOURCE_EXHAUSTED') || rawMsg.includes('429')) {
+      userFriendlyError = 'Превышен минутный лимит запросов к бесплатному Gemini API (Rate Limit 429). Подождите 60 секунд и повторите попытку.';
+    } else if (rawMsg.includes('FUNCTION_INVOCATION_TIMEOUT') || rawMsg.includes('timeout') || rawMsg.includes('504')) {
+      userFriendlyError = 'Таймаут ответа. Поиск по актуальным событиям занял больше времени, чем ожидалось. Попробуйте снова.';
+    }
+
     return res.status(500).json({
-      error: `Ошибка Gemini API: ${error?.message || 'Не удалось выполнить поиск реальных матчей'}`,
+      error: userFriendlyError,
     });
   }
 }
