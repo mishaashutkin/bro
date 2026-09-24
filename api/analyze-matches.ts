@@ -86,6 +86,58 @@ export interface BrotherResponse {
   noMatchesNotice?: string;
 }
 
+export function isMatchMatchingQuery(
+  match: { homeTeam?: string; awayTeam?: string; matchName?: string; league?: string },
+  query: string
+): boolean {
+  if (!query || !query.trim()) return true;
+
+  const normalize = (str: string) =>
+    str
+      .toLowerCase()
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zа-я0-9\s]/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  const matchFullText = normalize(
+    `${match.homeTeam || ''} ${match.awayTeam || ''} ${match.matchName || ''} ${match.league || ''}`
+  );
+
+  const subQueries = query
+    .split(/[,;\n\+]|\s+(?:и|and)\s+/i)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  if (subQueries.length === 0) return true;
+
+  return subQueries.some((subQ) => {
+    const teamTokens = subQ
+      .split(/\s*(?:[-—–]|(?:\bvs\b)|(?:\bv\b)|(?:\bпротив\b))\s*/i)
+      .map((t) => normalize(t))
+      .filter((t) => t.length >= 2);
+
+    if (teamTokens.length >= 2) {
+      return teamTokens.some((token) => {
+        if (!token) return false;
+        if (matchFullText.includes(token)) return true;
+        const words = token.split(' ').filter((w) => w.length >= 3);
+        return words.length > 0 && words.some((w) => matchFullText.includes(w));
+      });
+    }
+
+    const normSubQ = normalize(subQ);
+    if (matchFullText.includes(normSubQ)) return true;
+
+    const words = normSubQ.split(' ').filter((w) => w.length >= 3);
+    if (words.length > 0) {
+      return words.some((w) => matchFullText.includes(w));
+    }
+
+    return matchFullText.includes(normSubQ);
+  });
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
@@ -139,28 +191,89 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const todayRealYear = new Date().getFullYear();
 
-  const customFilterInstruction = cleanCustomQuery
-    ? `
-ВНИМАНИЕ — ПОЛЬЗОВАТЕЛЬ ЗАПРОСИЛ КОНКРЕТНЫЕ МАТЧИ/КОМАНДЫ:
-"${cleanCustomQuery}"
+  const isCustomMode = Boolean(cleanCustomQuery);
 
-Обязательные требования к поиску пользователя:
-1. Загугли и проверь расписание именно для этих команд/матчей: "${cleanCustomQuery}" на дату ${targetDate} (год ${todayRealYear}).
-2. Если указанный матч не запланирован на ${targetDate} или не попадает в диапазон времени с ${cleanStartTime} до ${cleanEndTime}, ОБЯЗАТЕЛЬНО добавь его в массив "unmatchedQueries" с подробным объяснением причины: "Матч не играет в указанный диапазон времени с ${cleanStartTime} до ${cleanEndTime}" или "Такое событие не найдено в расписании на ${targetDate}".
-3. Если матч действительно играет в интервале с ${cleanStartTime} до ${cleanEndTime}, проведи его глубокий анализ и включи в "matches" только те исходы, вероятность которых >= 80%.
+  const prompt = isCustomMode
+    ? `
+Ты — опытный спортивный аналитик «Брат», обладающий математическим чутьем и глубоким пониманием xG, составов, формы команд и движения коэффициентов.
+
+СТРОЖАЙШЕЕ ПРАВИЛО:
+ПОЛЬЗОВАТЕЛЬ ЗАПРОСИЛ АНАЛИЗ ИСКЛЮЧИТЕЛЬНО КОНКРЕТНЫХ МАТЧЕЙ:
+«${cleanCustomQuery}»
+
+В ОТВЕТЕ В МАССИВЕ "matches" ДОЛЖНЫ БЫТЬ ТОЛЬКО И ИСКЛЮЧИТЕЛЬНО ВПИСАННЫЕ МАТЧИ/КОМАНДЫ («${cleanCustomQuery}»)!
+КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО:
+- Включать любые сторонние матчи дня (из АПЛ, Ла Лиги, РПЛ, КХЛ или других лиг), которые пользователь НЕ вписывал.
+- Добавлять матчи "для количества" или "чтобы заполнить список".
+- Подменять запрошенный матч другими играми.
+
+ЕСЛИ ПОЛЬЗОВАТЕЛЬ ВПИСАЛ ОДИН МАТЧ — В МАССИВЕ "matches" МОЖЕТ БЫТЬ МАКСИМУМ 1 ЭТОТ МАТЧ (или 0, если нет исходов с вероятностью >= 80%).
+
+СПОРТ: ${sportName}
+ДАТА: ${targetDate} (Год: ${todayRealYear})
+ДИАПАЗОН ВРЕМЕНИ: с ${cleanStartTime} до ${cleanEndTime}
+
+ПРАВИЛА ОБРАБОТКИ:
+1. Используй инструмент googleSearch, чтобы найти точную информацию, время начала, статус, составы, статистику xG и коэффициенты ИМЕННО ДЛЯ ЗАПРОШЕННОГО МАТЧА: «${cleanCustomQuery}».
+2. Если матч запланирован на дату ${targetDate}:
+   - Проанализируй реальную форму команд, xG, личные встречи, потери в составе и мотивацию.
+   - Отбери исходы с вероятностью 80% и выше (например, ТБ 1.5, Фора (+1.5) на фаворита, 1X, Индивидуальный тотал и т.д.).
+   - Включи В МАССИВ matches ТОЛЬКО ЭТОТ МАТЧ (ни одного постороннего матча быть не должно!).
+   - Если в этом матче нет исходов с вероятностью от 80%, НЕ добавляй никаких сторонних матчей! Оставь массив matches пустым [] и в поле "noMatchesNotice" подробно объясни, почему в матче «${cleanCustomQuery}» нет исходов от 80% (высокая непредсказуемость или риски).
+3. Если запрошенный матч не играет ${targetDate} или не найден:
+   - Добавь его в массив "unmatchedQueries" с указанием точной причины (например: "Матч состоится в другую дату: ...").
+   - Оставь "matches" пустым ([]).
+
+ОТВЕТ ДОЛЖЕН БЫТЬ СТРОГО В ФОРМАТЕ JSON (без разметки markdown, чистый валидный JSON):
+{
+  "brotherSummary": {
+    "greeting": "Братский разбор матча «${cleanCustomQuery}»",
+    "matchesAnalyzedTotal": 1,
+    "matchesQualified": 1,
+    "averageConfidence": 85,
+    "brotherTip": "Конкретный полезный совет по матчу «${cleanCustomQuery}»",
+    "sportName": "${sportName}",
+    "date": "${targetDate}",
+    "timeRange": "с ${cleanStartTime} до ${cleanEndTime}",
+    "userFilterQuery": "${cleanCustomQuery}"
+  },
+  "unmatchedQueries": [],
+  "noMatchesNotice": null,
+  "matches": [
+    {
+      "id": "match-custom-1",
+      "league": "Название турнира",
+      "homeTeam": "Хозяева из запроса",
+      "awayTeam": "Гости из запроса",
+      "matchName": "Хозяева — Гости",
+      "time": "Время начала",
+      "status": "upcoming",
+      "predictions": [
+        {
+          "event": "Исход с вероятностью >= 80%",
+          "probability": 86,
+          "estimatedOdds": "1.45",
+          "tag": "Железобетон"
+        }
+      ],
+      "reasoning": "Подробное обоснование на основе xG, формы и составов",
+      "keyStats": [
+        "Стат факт 1",
+        "Стат факт 2"
+      ],
+      "brotherVerdict": "Короткий братский вердикт"
+    }
+  ]
+}
 `
     : `
-Пользователь не указал конкретных матчей. Найди ВСЕ доступные официальные матчи по виду спорта "${sportName}" на дату ${targetDate} (год ${todayRealYear}), начинающиеся строго между ${cleanStartTime} и ${cleanEndTime}.
-`;
-
-  const prompt = `
 Ты — опытный спортивный аналитик «Брат», обладающий математическим чутьем и глубоким пониманием xG, составов, формы команд и движения коэффициентов.
 Твоя задача: найти РЕАЛЬНЫЕ текущие матчи через Google Search на дату ${targetDate} и отобрать ТОЛЬКО исходы с математической вероятностью 80% и выше (железобетонные ставки).
 
 СПОРТ: ${sportName}
 ДАТА МАТЧЕЙ: ${targetDate} (Текущий год: ${todayRealYear})
 ДИАПАЗОН ВРЕМЕНИ НАЧАЛА: с ${cleanStartTime} до ${cleanEndTime} (по московскому времени/местному времени турнира)
-${customFilterInstruction}
+Пользователь не указал конкретных матчей. Найди доступные официальные матчи по виду спорта "${sportName}" на дату ${targetDate} (год ${todayRealYear}), начинающиеся строго между ${cleanStartTime} и ${cleanEndTime}.
 
 КРИТЕРИИ ОТБОРА МАТЧЕЙ:
 1. Ищи ТОЛЬКО РЕАЛЬНЫЕ матчи, которые действительно запланированы на ${targetDate}. Используй инструмент googleSearch.
@@ -169,7 +282,6 @@ ${customFilterInstruction}
 4. Отбирай ТОЛЬКО исходы с расчетной вероятностью 80% и выше (например, ТБ 1.5 в футболе, Фора (+1.5) на фаворита, Индивидуальный тотал, Победа фаворита с нулевой форой, 1X и т.д.).
 5. В таблицу должны попасть ТОЛЬКО исходы с probability >= 80. Если в матче нет исходов с вероятностью >= 80%, НЕ включай этот исход.
 6. Если ни одного матча в этот интервал времени нет или нет исходов с вероятностью >= 80%, верни пустой массив "matches" и заполни поле "noMatchesNotice" вежливым братским объяснением.
-7. Если пользователь вписал конкретный матч, но он играет в другое время или не играет сегодня, ОБЯЗАТЕЛЬНО добавь его в "unmatchedQueries" с точной причиной.
 
 ОТВЕТ ДОЛЖЕН БЫТЬ СТРОГО В ФОРМАТЕ JSON (без разметки markdown, чистый валидный JSON):
 {
@@ -182,14 +294,9 @@ ${customFilterInstruction}
     "sportName": "${sportName}",
     "date": "${targetDate}",
     "timeRange": "с ${cleanStartTime} до ${cleanEndTime}",
-    "userFilterQuery": ${cleanCustomQuery ? `"${cleanCustomQuery}"` : 'null'}
+    "userFilterQuery": null
   },
-  "unmatchedQueries": [
-    {
-      "query": "Название команды или матча из запроса пользователя",
-      "reason": "Матч играет в 22:45, что позже указанного окончания 21:00 (или: Матч не запланирован на ${targetDate})"
-    }
-  ],
+  "unmatchedQueries": [],
   "noMatchesNotice": "Заполняется только если в итоге matches пуст: понятное объяснение, почему нет подходящих матчей в это время",
   "matches": [
     {
@@ -292,13 +399,22 @@ ${customFilterInstruction}
           m.predictions = (m.predictions || []).filter((p) => p.probability >= 80);
         });
         parsed.matches = parsed.matches.filter((m) => m.predictions.length > 0);
+
+        // Strict post-filtering: if the user specified custom matches, keep ONLY matches matching user query!
+        if (cleanCustomQuery) {
+          parsed.matches = parsed.matches.filter((m) => isMatchMatchingQuery(m, cleanCustomQuery));
+          if (parsed.brotherSummary) {
+            parsed.brotherSummary.matchesAnalyzedTotal = Math.max(parsed.matches.length, 1);
+            parsed.brotherSummary.matchesQualified = parsed.matches.length;
+          }
+        }
       } else {
         parsed.matches = [];
       }
 
       if (parsed.matches.length === 0 && !parsed.noMatchesNotice) {
         parsed.noMatchesNotice = cleanCustomQuery
-          ? `События по запросу «${cleanCustomQuery}» в интервал времени с ${cleanStartTime} до ${cleanEndTime} не найдены либо вероятность исхода ниже 80%.`
+          ? `По запросу «${cleanCustomQuery}» не найдено исходов с вероятностью от 80% на ${targetDate} (матч слишком непредсказуемый либо не запланирован на выбранную дату).`
           : `В диапазоне с ${cleanStartTime} до ${cleanEndTime} на ${targetDate} событий с вероятностью от 80% не обнаружено.`;
       }
 

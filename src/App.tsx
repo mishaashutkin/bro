@@ -74,6 +74,58 @@ const SPORTS = [
   { id: 'esports', name: 'Киберспорт', icon: '🎮', desc: 'CS2, Dota 2' },
 ];
 
+function isMatchMatchingQuery(
+  match: { homeTeam?: string; awayTeam?: string; matchName?: string; league?: string },
+  query: string
+): boolean {
+  if (!query || !query.trim()) return true;
+
+  const normalize = (str: string) =>
+    str
+      .toLowerCase()
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zа-я0-9\s]/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  const matchFullText = normalize(
+    `${match.homeTeam || ''} ${match.awayTeam || ''} ${match.matchName || ''} ${match.league || ''}`
+  );
+
+  const subQueries = query
+    .split(/[,;\n\+]|\s+(?:и|and)\s+/i)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  if (subQueries.length === 0) return true;
+
+  return subQueries.some((subQ) => {
+    const teamTokens = subQ
+      .split(/\s*(?:[-—–]|(?:\bvs\b)|(?:\bv\b)|(?:\bпротив\b))\s*/i)
+      .map((t) => normalize(t))
+      .filter((t) => t.length >= 2);
+
+    if (teamTokens.length >= 2) {
+      return teamTokens.some((token) => {
+        if (!token) return false;
+        if (matchFullText.includes(token)) return true;
+        const words = token.split(' ').filter((w) => w.length >= 3);
+        return words.length > 0 && words.some((w) => matchFullText.includes(w));
+      });
+    }
+
+    const normSubQ = normalize(subQ);
+    if (matchFullText.includes(normSubQ)) return true;
+
+    const words = normSubQ.split(' ').filter((w) => w.length >= 3);
+    if (words.length > 0) {
+      return words.some((w) => matchFullText.includes(w));
+    }
+
+    return matchFullText.includes(normSubQ);
+  });
+}
+
 export default function App() {
   const getLocalDateString = (d: Date = new Date()) => {
     const year = d.getFullYear();
@@ -116,13 +168,21 @@ export default function App() {
     return () => clearInterval(timer);
   }, [cooldown]);
 
-  const analysisSteps = [
-    'Поиск официальных расписаний через Google Search в реальном времени...',
-    'Фильтрация матчей строго по интервалу времени и вашему запросу...',
-    'Аудит xG, текущих составов, кондиций команд и травм...',
-    'Математический расчет: отбор исходов с вероятностью строго от 80%...',
-    'Формирование братского вердикта и экспертного обоснования...',
-  ];
+  const analysisSteps = customMatchesInput.trim()
+    ? [
+        `Поиск информации через Google Search строго для матча «${customMatchesInput.trim()}»...`,
+        `Проверка времени начала, стартовых составов и потерь команд...`,
+        `Аудит xG, текущей формы и личных встреч...`,
+        `Математический расчет: отбор исходов с вероятностью строго от 80%...`,
+        `Формирование персонального вердикта Брата (все сторонние матчи исключены)...`,
+      ]
+    : [
+        'Поиск официальных расписаний через Google Search в реальном времени...',
+        'Фильтрация матчей строго по интервалу времени и вашему запросу...',
+        'Аудит xG, текущих составов, кондиций команд и травм...',
+        'Математический расчет: отбор исходов с вероятностью строго от 80%...',
+        'Формирование братского вердикта и экспертного обоснования...',
+      ];
 
   const handleAnalyze = async () => {
     setLoading(true);
@@ -187,10 +247,12 @@ export default function App() {
     }
   };
 
+  const activeCustomQuery = (customMatchesInput.trim() || data?.brotherSummary?.userFilterQuery || '').trim();
+
   const filteredMatches = data?.matches
-    ? data.matches.filter((m) =>
-        m.predictions.some((p) => p.probability >= confidenceFilter)
-      )
+    ? data.matches
+        .filter((m) => m.predictions.some((p) => p.probability >= confidenceFilter))
+        .filter((m) => (!activeCustomQuery ? true : isMatchMatchingQuery(m, activeCustomQuery)))
     : [];
 
   const toggleReasoning = (id: string) => {
@@ -456,11 +518,18 @@ ${items}
 
             {/* 3. Custom Match Input */}
             <div className="space-y-2.5 pt-1">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-bold uppercase tracking-wider text-sky-200 flex items-center gap-1.5">
-                  <Target className="w-3.5 h-3.5 text-sky-400" />
-                  <span>Индивидуальный выбор матчей (опционально)</span>
-                </label>
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <label className="text-xs font-bold uppercase tracking-wider text-sky-200 flex items-center gap-1.5">
+                    <Target className="w-3.5 h-3.5 text-sky-400" />
+                    <span>Точечный анализ матчей (ТОЛЬКО вписанные)</span>
+                  </label>
+                  {customMatchesInput.trim() && (
+                    <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse">
+                      Режим: строго вписанные
+                    </span>
+                  )}
+                </div>
                 {customMatchesInput && (
                   <button
                     type="button"
@@ -481,12 +550,27 @@ ${items}
                   type="text"
                   value={customMatchesInput}
                   onChange={(e) => setCustomMatchesInput(e.target.value)}
-                  placeholder="Впишите интересующие матчи или команды (например: «Спартак - Динамо», «Арсенал», «Реал Мадрид»)..."
-                  className="w-full bg-[#030919] border border-blue-500/20 hover:border-blue-400/40 focus:border-sky-400 rounded-xl pl-10 pr-4 py-3.5 text-white text-sm outline-none transition-all placeholder:text-slate-500 shadow-inner"
+                  placeholder="Впишите конкретный матч или команды (например: «Спартак - Динамо», «Реал - Барселона», «Ливерпуль»)..."
+                  className={`w-full bg-[#030919] border rounded-xl pl-10 pr-4 py-3.5 text-white text-sm outline-none transition-all placeholder:text-slate-500 shadow-inner ${
+                    customMatchesInput.trim()
+                      ? 'border-amber-400/50 focus:border-amber-400 ring-1 ring-amber-400/20'
+                      : 'border-blue-500/20 hover:border-blue-400/40 focus:border-sky-400'
+                  }`}
                 />
               </div>
-              <p className="text-[11px] text-slate-400 leading-normal">
-                💡 Если оставить поле пустым — ИИ просканирует <span className="text-sky-300 font-medium">всю линию</span> в интервале времени. Если вписать команды — ИИ проверит конкретно их.
+              <p className="text-[11px] text-slate-400 leading-normal flex items-start gap-1.5">
+                <span className="text-sky-400 font-bold shrink-0">🎯</span>
+                <span>
+                  {customMatchesInput.trim() ? (
+                    <span className="text-amber-300 font-medium">
+                      Включен строгий режим: ИИ проанализирует <b>ИСКЛЮЧИТЕЛЬНО</b> указанные вами матчи. Любые другие матчи дня будут отфильтрованы.
+                    </span>
+                  ) : (
+                    <>
+                      Если поле пустое — ИИ проверит <span className="text-sky-300 font-medium">всю линию дня</span>. Если вписать матч — ИИ проанализирует <b>только его</b>.
+                    </>
+                  )}
+                </span>
               </p>
             </div>
 
@@ -499,6 +583,8 @@ ${items}
                 className={`w-full relative group overflow-hidden rounded-2xl py-4 sm:py-5 px-6 font-brand font-bold text-base sm:text-lg tracking-wide uppercase transition-all duration-300 shadow-xl ${
                   loading || cooldown > 0
                     ? 'bg-[#061026] text-slate-400 cursor-not-allowed border border-blue-500/20'
+                    : customMatchesInput.trim()
+                    ? 'bg-gradient-to-r from-amber-600 via-orange-500 to-amber-600 bg-[length:200%_auto] hover:bg-right text-white shadow-[0_12px_36px_-6px_rgba(217,119,6,0.45)] hover:shadow-[0_16px_44px_-6px_rgba(217,119,6,0.65)] hover:-translate-y-0.5 active:translate-y-0 border border-amber-300/30 cursor-pointer'
                     : 'bg-gradient-to-r from-blue-600 via-sky-500 to-blue-600 bg-[length:200%_auto] hover:bg-right text-white shadow-[0_12px_36px_-6px_rgba(37,99,235,0.45)] hover:shadow-[0_16px_44px_-6px_rgba(37,99,235,0.65)] hover:-translate-y-0.5 active:translate-y-0 border border-sky-300/30 cursor-pointer'
                 }`}
               >
@@ -506,7 +592,11 @@ ${items}
                   {loading ? (
                     <>
                       <div className="w-5 h-5 border-2 border-sky-400 border-t-transparent rounded-full animate-spin" />
-                      <span className="tracking-wider text-sm sm:text-base font-sans">Идет поиск официальной сетки и аудит...</span>
+                      <span className="tracking-wider text-sm sm:text-base font-sans">
+                        {customMatchesInput.trim()
+                          ? `Анализ матча «${customMatchesInput.trim().slice(0, 25)}»...`
+                          : 'Идет поиск официальной сетки и аудит...'}
+                      </span>
                     </>
                   ) : cooldown > 0 ? (
                     <>
@@ -518,7 +608,11 @@ ${items}
                   ) : (
                     <>
                       <Zap className="w-5 h-5 fill-white text-white" />
-                      <span>ПРОГНОЗ</span>
+                      <span>
+                        {customMatchesInput.trim()
+                          ? `ПРОАНАЛИЗИРОВАТЬ ТОЛЬКО: ${customMatchesInput.trim().slice(0, 28)}${customMatchesInput.trim().length > 28 ? '...' : ''}`
+                          : 'ПОЛУЧИТЬ АНАЛИЗ И ПРОГНОЗ'}
+                      </span>
                       <ArrowRight className="w-5 h-5 ml-1 transition-transform group-hover:translate-x-1" />
                     </>
                   )}
@@ -685,8 +779,9 @@ ${items}
                       {data.brotherSummary.timeRange}
                     </span>
                     {data.brotherSummary.userFilterQuery && (
-                      <span className="text-xs px-2.5 py-0.5 rounded-full bg-indigo-950/70 border border-indigo-600/30 text-indigo-200">
-                        Фильтр: «{data.brotherSummary.userFilterQuery}»
+                      <span className="text-xs px-2.5 py-0.5 rounded-full bg-amber-950/70 border border-amber-500/40 text-amber-300 font-medium flex items-center gap-1">
+                        <span>🎯</span>
+                        <span>Только матч: «{data.brotherSummary.userFilterQuery}»</span>
                       </span>
                     )}
                   </div>
@@ -714,7 +809,9 @@ ${items}
                   <div className="text-2xl font-brand font-bold text-white mt-1 font-mono-data">
                     {data.brotherSummary.matchesAnalyzedTotal}
                   </div>
-                  <div className="text-[10px] text-slate-500 mt-0.5">100% сетки</div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">
+                    {data.brotherSummary.userFilterQuery ? 'Только запрошенные' : '100% сетки'}
+                  </div>
                 </div>
 
                 <div className="sapphire-inner-card p-4 rounded-2xl text-center">
