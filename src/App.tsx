@@ -231,30 +231,31 @@ ${items}
   };
 
   return (
-    <div className="min-h-screen bg-[#050B18] text-slate-100 flex flex-col font-sans selection:bg-cyan-500/20 selection:text-cyan-200 relative antialiased">
+    <div className="min-h-screen bg-[#02050E] text-slate-100 flex flex-col font-sans selection:bg-blue-600/30 selection:text-sky-200 relative antialiased">
       {/* Elegant Atmospheric Glow */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-        <div className="absolute -top-36 left-1/2 -translate-x-1/2 w-[850px] h-[450px] bg-sky-600/10 blur-[150px] rounded-full" />
-        <div className="absolute top-1/3 -right-24 w-[500px] h-[500px] bg-blue-700/8 blur-[160px] rounded-full" />
-        <div className="absolute bottom-10 -left-20 w-[550px] h-[450px] bg-indigo-900/12 blur-[150px] rounded-full" />
+        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[900px] h-[480px] bg-blue-700/10 blur-[180px] rounded-full pointer-events-none" />
+        <div className="absolute top-1/4 -right-32 w-[600px] h-[600px] bg-indigo-900/15 blur-[200px] rounded-full pointer-events-none" />
+        <div className="absolute bottom-1/4 -left-32 w-[650px] h-[600px] bg-blue-950/25 blur-[200px] rounded-full pointer-events-none" />
       </div>
 
       {/* Header */}
-      <header className="border-b border-sky-500/15 bg-[#070F22]/90 backdrop-blur-xl sticky top-0 z-40 relative">
+      <header className="border-b border-blue-500/15 bg-[#030818]/90 backdrop-blur-2xl sticky top-0 z-40 relative">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-3.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-400 via-sky-500 to-blue-600 p-[1.5px] shadow-lg shadow-sky-500/20">
-              <div className="w-full h-full bg-[#070F22] rounded-[10px] flex items-center justify-center">
-                <ShieldCheck className="w-5 h-5 text-cyan-400" />
+            <div className="relative group">
+              <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-600 to-sky-500 rounded-xl blur opacity-30 group-hover:opacity-60 transition duration-300" />
+              <div className="relative w-10 h-10 rounded-xl bg-[#030919] border border-blue-500/30 flex items-center justify-center shadow-lg shadow-blue-950/50">
+                <ShieldCheck className="w-5 h-5 text-blue-400" />
               </div>
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <span className="font-extrabold text-xl tracking-tight text-white">
+              <div className="flex items-center gap-2.5">
+                <span className="font-brand font-black text-2xl tracking-tight text-white drop-shadow-[0_2px_8px_rgba(59,130,246,0.3)]">
                   БРАТ
                 </span>
-                <span className="text-[10px] font-semibold tracking-wider uppercase px-2 py-0.5 rounded-full bg-cyan-950/80 border border-cyan-500/30 text-cyan-300">
-                  Реальный ИИ-Анализ
+                <span className="text-[10px] font-semibold tracking-wider uppercase px-2.5 py-0.5 rounded-full bg-blue-950/80 border border-blue-500/30 text-sky-300">
+                  Спортивный интеллект
                 </span>
               </div>
             </div>
@@ -262,10 +263,10 @@ ${items}
 
           <div className="flex items-center gap-3 text-xs">
             <div className="hidden sm:flex items-center gap-2 text-slate-400 text-xs">
-              <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-              <span>Поиск расписаний в реальном времени</span>
-              <span className="text-slate-600">·</span>
-              <span className="text-sky-300 font-semibold">Порог ≥ 80%</span>
+              <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse shadow-[0_0_8px_#38bdf8]" />
+              <span className="text-slate-300 font-medium">Аудит официальной сетки</span>
+              <span className="text-blue-900">|</span>
+              <span className="text-sky-300 font-mono-data font-semibold">Строго ≥ 80%</span>
             </div>
           </div>
         </div>
@@ -275,14 +276,14 @@ ${items}
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 space-y-8 relative z-10">
         
         {/* CONTROL PANEL */}
-        <section className="navy-card rounded-3xl p-6 sm:p-8 space-y-6">
+        <section className="sapphire-panel rounded-3xl p-6 sm:p-8 space-y-6">
           <div className="space-y-6">
             
             {/* 1. Sport Selector */}
             <div className="space-y-2.5">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold uppercase tracking-wider text-sky-200 flex items-center gap-2">
-                  <Flame className="w-3.5 h-3.5 text-cyan-400" />
+                  <Flame className="w-3.5 h-3.5 text-sky-400" />
                   <span>Вид спорта</span>
                 </label>
                 <span className="text-[11px] text-slate-400">Выберите дисциплину</span>
@@ -296,19 +297,22 @@ ${items}
                       key={sport.id}
                       type="button"
                       onClick={() => setSelectedSport(sport.id)}
-                      className={`relative text-left p-3.5 rounded-2xl border transition-all duration-200 cursor-pointer ${
+                      className={`relative text-left p-4 rounded-2xl border transition-all duration-200 cursor-pointer overflow-hidden ${
                         isSelected
-                          ? 'bg-gradient-to-b from-sky-950/80 to-blue-950/70 border-cyan-400/70 shadow-lg shadow-cyan-950/50 text-white'
-                          : 'bg-[#081226]/70 border-white/[0.05] hover:border-sky-700/50 hover:bg-[#0B1A38]/70 text-slate-300'
+                          ? 'bg-gradient-to-b from-[#0c1f4a] to-[#06122d] border-blue-400/70 shadow-[0_12px_28px_-6px_rgba(37,99,235,0.35)] text-white'
+                          : 'bg-[#030919]/80 border-blue-500/10 hover:border-blue-500/30 hover:bg-[#061333]/70 text-slate-300'
                       }`}
                     >
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-xl">{sport.icon}</span>
+                      {isSelected && (
+                        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-sky-400 to-transparent" />
+                      )}
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-2xl filter drop-shadow">{sport.icon}</span>
                         {isSelected && (
-                          <div className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_#22d3ee]" />
+                          <div className="w-2 h-2 rounded-full bg-sky-400 shadow-[0_0_10px_#38bdf8]" />
                         )}
                       </div>
-                      <div className="font-bold text-sm text-white">{sport.name}</div>
+                      <div className="font-bold text-sm text-white tracking-tight">{sport.name}</div>
                       <div className="text-[11px] text-slate-400 truncate mt-0.5">{sport.desc}</div>
                     </button>
                   );
@@ -323,28 +327,28 @@ ${items}
               <div className="lg:col-span-5 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold uppercase tracking-wider text-sky-200 flex items-center gap-1.5">
-                    <Calendar className="w-3.5 h-3.5 text-cyan-400" />
+                    <Calendar className="w-3.5 h-3.5 text-sky-400" />
                     <span>Дата матчей</span>
                   </label>
                   <div className="flex gap-1.5">
                     <button
                       type="button"
                       onClick={() => setQuickDate(0)}
-                      className="px-2.5 py-1 text-[11px] bg-[#0A1733] hover:bg-[#10234D] border border-sky-500/25 rounded-lg text-sky-200 transition-colors font-medium cursor-pointer"
+                      className="px-2.5 py-1 text-[11px] bg-[#040C20] hover:bg-[#0A1D4A] border border-blue-500/20 hover:border-blue-400/40 rounded-lg text-sky-200 transition-colors font-medium cursor-pointer"
                     >
                       Сегодня
                     </button>
                     <button
                       type="button"
                       onClick={() => setQuickDate(1)}
-                      className="px-2.5 py-1 text-[11px] bg-[#0A1733] hover:bg-[#10234D] border border-sky-500/25 rounded-lg text-sky-200 transition-colors font-medium cursor-pointer"
+                      className="px-2.5 py-1 text-[11px] bg-[#040C20] hover:bg-[#0A1D4A] border border-blue-500/20 hover:border-blue-400/40 rounded-lg text-sky-200 transition-colors font-medium cursor-pointer"
                     >
                       Завтра
                     </button>
                     <button
                       type="button"
                       onClick={() => setQuickDate(2)}
-                      className="px-2.5 py-1 text-[11px] bg-[#0A1733] hover:bg-[#10234D] border border-sky-500/25 rounded-lg text-sky-200 transition-colors font-medium cursor-pointer"
+                      className="px-2.5 py-1 text-[11px] bg-[#040C20] hover:bg-[#0A1D4A] border border-blue-500/20 hover:border-blue-400/40 rounded-lg text-sky-200 transition-colors font-medium cursor-pointer"
                     >
                       Послезавтра
                     </button>
@@ -355,7 +359,7 @@ ${items}
                   type="date"
                   value={selectedDate}
                   onChange={(e) => setSelectedDate(e.target.value)}
-                  className="w-full bg-[#061024] border border-sky-500/25 hover:border-sky-400 focus:border-cyan-400 rounded-xl px-4 py-3 text-white text-sm font-semibold outline-none transition-all shadow-inner"
+                  className="w-full bg-[#030919] border border-blue-500/20 hover:border-blue-400/40 focus:border-sky-400 rounded-xl px-4 py-3 text-white text-sm font-semibold outline-none transition-all shadow-inner"
                 />
               </div>
 
@@ -363,7 +367,7 @@ ${items}
               <div className="lg:col-span-7 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold uppercase tracking-wider text-sky-200 flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5 text-cyan-400" />
+                    <Clock className="w-3.5 h-3.5 text-sky-400" />
                     <span>Диапазон времени событий</span>
                   </label>
                   <div className="flex gap-1.5">
@@ -376,7 +380,7 @@ ${items}
                         setStartTime(`${h}:${m}`);
                         setEndTime('23:59');
                       }}
-                      className="px-2 py-1 text-[11px] bg-[#0A1733] hover:bg-[#10234D] border border-sky-500/25 rounded-lg text-cyan-300 transition-colors font-medium cursor-pointer"
+                      className="px-2 py-1 text-[11px] bg-[#040C20] hover:bg-[#0A1D4A] border border-blue-500/20 hover:border-blue-400/40 rounded-lg text-sky-300 transition-colors font-medium cursor-pointer"
                     >
                       С текущего ({currentHours}:{currentMinutes})
                     </button>
@@ -386,7 +390,7 @@ ${items}
                         setStartTime('18:00');
                         setEndTime('23:30');
                       }}
-                      className="px-2 py-1 text-[11px] bg-[#0A1733] hover:bg-[#10234D] border border-sky-500/25 rounded-lg text-sky-200 transition-colors font-medium cursor-pointer"
+                      className="px-2 py-1 text-[11px] bg-[#040C20] hover:bg-[#0A1D4A] border border-blue-500/20 hover:border-blue-400/40 rounded-lg text-sky-200 transition-colors font-medium cursor-pointer"
                     >
                       Вечер (18:00–23:30)
                     </button>
@@ -396,7 +400,7 @@ ${items}
                         setStartTime('00:00');
                         setEndTime('23:59');
                       }}
-                      className="px-2 py-1 text-[11px] bg-[#0A1733] hover:bg-[#10234D] border border-sky-500/25 rounded-lg text-sky-200 transition-colors font-medium cursor-pointer"
+                      className="px-2 py-1 text-[11px] bg-[#040C20] hover:bg-[#0A1D4A] border border-blue-500/20 hover:border-blue-400/40 rounded-lg text-sky-200 transition-colors font-medium cursor-pointer"
                     >
                       Весь день
                     </button>
@@ -410,7 +414,7 @@ ${items}
                       type="time"
                       value={startTime}
                       onChange={(e) => setStartTime(e.target.value)}
-                      className="w-full bg-[#061024] border border-sky-500/25 hover:border-sky-400 focus:border-cyan-400 rounded-xl px-4 py-3 text-white text-sm font-semibold outline-none transition-all shadow-inner font-mono-data"
+                      className="w-full bg-[#030919] border border-blue-500/20 hover:border-blue-400/40 focus:border-sky-400 rounded-xl px-4 py-3 text-white text-sm font-semibold outline-none transition-all shadow-inner font-mono-data"
                     />
                   </div>
 
@@ -420,7 +424,7 @@ ${items}
                       type="time"
                       value={endTime}
                       onChange={(e) => setEndTime(e.target.value)}
-                      className="w-full bg-[#061024] border border-sky-500/25 hover:border-sky-400 focus:border-cyan-400 rounded-xl px-4 py-3 text-white text-sm font-semibold outline-none transition-all shadow-inner font-mono-data"
+                      className="w-full bg-[#030919] border border-blue-500/20 hover:border-blue-400/40 focus:border-sky-400 rounded-xl px-4 py-3 text-white text-sm font-semibold outline-none transition-all shadow-inner font-mono-data"
                     />
                   </div>
                 </div>
@@ -431,7 +435,7 @@ ${items}
             <div className="space-y-2.5 pt-1">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold uppercase tracking-wider text-sky-200 flex items-center gap-1.5">
-                  <Target className="w-3.5 h-3.5 text-cyan-400" />
+                  <Target className="w-3.5 h-3.5 text-sky-400" />
                   <span>Индивидуальный выбор матчей (опционально)</span>
                 </label>
                 {customMatchesInput && (
@@ -455,11 +459,11 @@ ${items}
                   value={customMatchesInput}
                   onChange={(e) => setCustomMatchesInput(e.target.value)}
                   placeholder="Впишите интересующие матчи или команды (например: «Спартак - Динамо», «Арсенал», «Реал Мадрид»)..."
-                  className="w-full bg-[#061024] border border-sky-500/25 hover:border-sky-400 focus:border-cyan-400 rounded-xl pl-10 pr-4 py-3.5 text-white text-sm outline-none transition-all placeholder:text-slate-500 shadow-inner"
+                  className="w-full bg-[#030919] border border-blue-500/20 hover:border-blue-400/40 focus:border-sky-400 rounded-xl pl-10 pr-4 py-3.5 text-white text-sm outline-none transition-all placeholder:text-slate-500 shadow-inner"
                 />
               </div>
               <p className="text-[11px] text-slate-400 leading-normal">
-                💡 Если оставить поле пустым — ИИ просканирует <span className="text-cyan-300 font-medium">всю линию</span> в интервале времени. Если вписать команды — ИИ проверит конкретно их. Если матч не попадает в диапазон времени или не запланирован, система сообщит об этом.
+                💡 Если оставить поле пустым — ИИ просканирует <span className="text-sky-300 font-medium">всю линию</span> в интервале времени. Если вписать команды — ИИ проверит конкретно их.
               </p>
             </div>
 
@@ -469,21 +473,21 @@ ${items}
                 type="button"
                 disabled={loading}
                 onClick={handleAnalyze}
-                className={`w-full relative group overflow-hidden rounded-2xl py-4 sm:py-5 px-6 font-bold text-base sm:text-lg tracking-wider uppercase transition-all duration-300 cursor-pointer shadow-xl ${
+                className={`w-full relative group overflow-hidden rounded-2xl py-4 sm:py-5 px-6 font-brand font-bold text-base sm:text-lg tracking-wide uppercase transition-all duration-300 cursor-pointer shadow-xl ${
                   loading
-                    ? 'bg-[#091633] text-slate-500 cursor-not-allowed border border-sky-500/20'
-                    : 'bg-gradient-to-r from-cyan-400 via-sky-400 to-blue-500 hover:from-cyan-300 hover:via-sky-300 hover:to-blue-400 text-slate-950 shadow-cyan-500/20 hover:shadow-cyan-500/35 hover:-translate-y-0.5 active:translate-y-0'
+                    ? 'bg-[#061026] text-slate-500 cursor-not-allowed border border-blue-500/20'
+                    : 'bg-gradient-to-r from-blue-600 via-sky-500 to-blue-600 bg-[length:200%_auto] hover:bg-right text-white shadow-[0_12px_36px_-6px_rgba(37,99,235,0.45)] hover:shadow-[0_16px_44px_-6px_rgba(37,99,235,0.65)] hover:-translate-y-0.5 active:translate-y-0 border border-sky-300/30'
                 }`}
               >
                 <div className="flex items-center justify-center gap-3">
                   {loading ? (
                     <>
-                      <div className="w-5 h-5 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
-                      <span className="tracking-widest">Идет реальный ИИ-поиск и аудит...</span>
+                      <div className="w-5 h-5 border-2 border-sky-400 border-t-transparent rounded-full animate-spin" />
+                      <span className="tracking-wider text-sm sm:text-base font-sans">Идет поиск официальной сетки и аудит...</span>
                     </>
                   ) : (
                     <>
-                      <Zap className="w-5 h-5 fill-slate-950" />
+                      <Zap className="w-5 h-5 fill-white text-white" />
                       <span>ПРОГНОЗ</span>
                       <ArrowRight className="w-5 h-5 ml-1 transition-transform group-hover:translate-x-1" />
                     </>
@@ -497,24 +501,24 @@ ${items}
 
         {/* LOADING STAGES */}
         {loading && (
-          <section className="navy-card rounded-3xl p-6 sm:p-8 space-y-6 animate-fadeIn">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-sky-500/20 pb-5">
+          <section className="sapphire-panel rounded-3xl p-6 sm:p-8 space-y-6 animate-fadeIn">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-blue-500/20 pb-5">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping" />
-                  <span className="text-xs uppercase tracking-widest font-bold text-cyan-400">
-                    Реальный анализ сетки в процессе
+                  <span className="w-2.5 h-2.5 rounded-full bg-sky-400 animate-ping" />
+                  <span className="text-xs uppercase tracking-widest font-bold text-sky-400">
+                    Аудит официальной сетки в процессе
                   </span>
                 </div>
                 <h3 className="text-lg font-bold text-white">
-                  Прочесываем официальное расписание ({startTime} – {endTime})
+                  Прочесываем расписание событий ({startTime} – {endTime})
                 </h3>
               </div>
 
               <div className="flex items-center gap-3 self-start sm:self-auto">
-                <div className="px-4 py-2 rounded-xl bg-[#061024] border border-sky-500/25 text-center">
+                <div className="px-4 py-2 rounded-xl bg-[#030919] border border-blue-500/25 text-center">
                   <div className="text-[10px] text-slate-400">Событий в обработке</div>
-                  <div className="text-lg font-black text-cyan-400 font-mono-data">
+                  <div className="text-lg font-black text-sky-400 font-mono-data">
                     {scannedCount}+
                   </div>
                 </div>
@@ -531,7 +535,7 @@ ${items}
                     key={idx}
                     className={`flex items-center gap-3.5 p-3 rounded-xl text-xs sm:text-sm font-medium transition-all ${
                       isCurrent
-                        ? 'bg-sky-950/70 text-cyan-200 border border-cyan-500/40'
+                        ? 'bg-blue-950/70 text-sky-200 border border-blue-500/40'
                         : isPassed
                         ? 'text-slate-400 bg-white/[0.01]'
                         : 'text-slate-600'
@@ -539,9 +543,9 @@ ${items}
                   >
                     <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0">
                       {isPassed ? (
-                        <CheckCircle2 className="w-4 h-4 text-cyan-400" />
+                        <CheckCircle2 className="w-4 h-4 text-sky-400" />
                       ) : isCurrent ? (
-                        <div className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+                        <div className="w-2 h-2 rounded-full bg-sky-400 animate-ping" />
                       ) : (
                         <div className="w-1.5 h-1.5 rounded-full bg-slate-700" />
                       )}
@@ -569,16 +573,16 @@ ${items}
 
         {/* Initial Welcome State */}
         {!loading && !data && !errorMessage && (
-          <section className="navy-card rounded-3xl p-8 sm:p-12 text-center space-y-4">
-            <div className="w-14 h-14 mx-auto rounded-2xl bg-cyan-500/10 border border-cyan-500/25 flex items-center justify-center text-cyan-400">
+          <section className="sapphire-panel rounded-3xl p-8 sm:p-12 text-center space-y-4">
+            <div className="w-14 h-14 mx-auto rounded-2xl bg-blue-500/10 border border-blue-500/25 flex items-center justify-center text-sky-400">
               <Zap className="w-7 h-7" />
             </div>
             <div className="max-w-lg mx-auto space-y-2">
-              <h3 className="font-extrabold text-white text-lg sm:text-xl">
+              <h3 className="font-brand font-bold text-white text-lg sm:text-xl">
                 Готов к поиску и аудиту линии
               </h3>
               <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-                Задайте дату, точное время начала и окончания событий, или впишите конкретные интересующие вас команды. Нажмите кнопку <span className="text-cyan-400 font-bold">«ПРОГНОЗ»</span> — ИИ проверит реальные расписания и отфильтрует только железобетонные события с вероятностью от 80%.
+                Задайте дату, точное время начала и окончания событий, или впишите конкретные интересующие вас команды. Нажмите кнопку <span className="text-sky-400 font-bold">«ПРОГНОЗ»</span> — ИИ проверит реальные расписания и отфильтрует только железобетонные события с вероятностью от 80%.
               </p>
             </div>
           </section>
@@ -603,8 +607,8 @@ ${items}
 
         {/* NO MATCHES NOTICE */}
         {!loading && data && data.noMatchesNotice && filteredMatches.length === 0 && (
-          <section className="navy-card rounded-3xl p-8 text-center space-y-4">
-            <div className="w-12 h-12 mx-auto rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400">
+          <section className="sapphire-panel rounded-3xl p-8 text-center space-y-4">
+            <div className="w-12 h-12 mx-auto rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-sky-400">
               <Info className="w-6 h-6" />
             </div>
             <div className="max-w-md mx-auto space-y-2">
@@ -626,23 +630,23 @@ ${items}
           <div className="space-y-6 animate-fadeIn">
             
             {/* Aesthetic Summary Card */}
-            <div className="navy-card rounded-3xl p-6 sm:p-8 space-y-5">
-              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-sky-500/20 pb-4">
+            <div className="sapphire-panel rounded-3xl p-6 sm:p-8 space-y-6">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-blue-500/20 pb-4">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <span className="text-cyan-400 font-bold text-xs uppercase tracking-wider">
+                    <span className="text-sky-400 font-bold text-xs uppercase tracking-wider">
                       Резюме анализа
                     </span>
-                    <span className="text-xs px-2.5 py-0.5 rounded-full bg-sky-950/70 border border-sky-600/30 text-sky-200 font-mono-data">
+                    <span className="text-xs px-2.5 py-0.5 rounded-full bg-blue-950/70 border border-blue-600/30 text-sky-200 font-mono-data">
                       {data.brotherSummary.timeRange}
                     </span>
                     {data.brotherSummary.userFilterQuery && (
-                      <span className="text-xs px-2.5 py-0.5 rounded-full bg-cyan-950/70 border border-cyan-600/30 text-cyan-200">
+                      <span className="text-xs px-2.5 py-0.5 rounded-full bg-indigo-950/70 border border-indigo-600/30 text-indigo-200">
                         Фильтр: «{data.brotherSummary.userFilterQuery}»
                       </span>
                     )}
                   </div>
-                  <h2 className="text-lg sm:text-xl font-extrabold text-white">
+                  <h2 className="text-lg sm:text-xl font-brand font-bold text-white">
                     {data.brotherSummary.greeting}
                   </h2>
                 </div>
@@ -651,7 +655,7 @@ ${items}
                   <button
                     type="button"
                     onClick={copyExpress}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-amber-500/10 cursor-pointer"
+                    className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 hover:from-blue-500 hover:via-indigo-500 hover:to-sky-400 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-blue-500/20 cursor-pointer"
                   >
                     {expressCopied ? <Check className="w-4 h-4" /> : <Zap className="w-4 h-4" />}
                     <span>{expressCopied ? 'Скопировано!' : 'Собрать экспресс'}</span>
@@ -661,40 +665,40 @@ ${items}
 
               {/* Stats badges */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="bg-[#061024] border border-sky-500/20 p-4 rounded-2xl text-center">
+                <div className="sapphire-inner-card p-4 rounded-2xl text-center">
                   <div className="text-xs text-slate-400 font-medium">Матчей изучено</div>
-                  <div className="text-xl font-extrabold text-white mt-0.5 font-mono-data">
+                  <div className="text-2xl font-brand font-bold text-white mt-1 font-mono-data">
                     {data.brotherSummary.matchesAnalyzedTotal}
                   </div>
-                  <div className="text-[10px] text-slate-500">100% реальной сетки</div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">100% сетки</div>
                 </div>
 
-                <div className="bg-[#061024] border border-sky-500/20 p-4 rounded-2xl text-center">
+                <div className="sapphire-inner-card p-4 rounded-2xl text-center">
                   <div className="text-xs text-slate-400 font-medium">Прошло в таблицу</div>
-                  <div className="text-xl font-extrabold text-cyan-400 mt-0.5 font-mono-data">
+                  <div className="text-2xl font-brand font-bold text-sky-400 mt-1 font-mono-data">
                     {filteredMatches.length}
                   </div>
-                  <div className="text-[10px] text-cyan-400/80">Строго ≥ {confidenceFilter}%</div>
+                  <div className="text-[10px] text-sky-400/80 mt-0.5">Строго ≥ {confidenceFilter}%</div>
                 </div>
 
-                <div className="bg-[#061024] border border-sky-500/20 p-4 rounded-2xl text-center">
+                <div className="sapphire-inner-card p-4 rounded-2xl text-center">
                   <div className="text-xs text-slate-400 font-medium">Средняя вероятность</div>
-                  <div className="text-xl font-extrabold text-amber-400 mt-0.5 font-mono-data">
+                  <div className="text-2xl font-brand font-bold text-blue-300 mt-1 font-mono-data">
                     {data.brotherSummary.averageConfidence}%
                   </div>
-                  <div className="text-[10px] text-amber-400/80">Высокая точность</div>
+                  <div className="text-[10px] text-blue-300/80 mt-0.5">Высокая точность</div>
                 </div>
 
-                <div className="bg-[#061024] border border-sky-500/20 p-4 rounded-2xl text-center">
+                <div className="sapphire-inner-card p-4 rounded-2xl text-center">
                   <div className="text-xs text-slate-400 font-medium">Статус отбора</div>
-                  <div className="text-xl font-extrabold text-sky-400 mt-0.5">Строгий</div>
-                  <div className="text-[10px] text-sky-400/80">Без сомнительных</div>
+                  <div className="text-2xl font-brand font-bold text-sky-300 mt-1">Строгий</div>
+                  <div className="text-[10px] text-sky-300/80 mt-0.5">Без сомнительных</div>
                 </div>
               </div>
 
               {/* Tip block */}
-              <div className="flex items-start gap-3 bg-[#061024]/80 border border-sky-500/20 p-4 rounded-2xl text-xs text-slate-300">
-                <Sparkles className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
+              <div className="sapphire-inner-card border-l-2 border-l-sky-400 p-4 rounded-2xl text-xs text-slate-300 flex items-start gap-3">
+                <Sparkles className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
                 <div>
                   <span className="font-bold text-white">Совет Брата: </span>
                   {data.brotherSummary.brotherTip}
@@ -703,9 +707,9 @@ ${items}
             </div>
 
             {/* Filter and Table Tools */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#081226]/90 border border-sky-500/25 p-4 rounded-2xl">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#030919]/95 border border-blue-500/25 p-4 rounded-2xl">
               <div className="flex items-center gap-2.5">
-                <FileSpreadsheet className="w-4 h-4 text-cyan-400" />
+                <FileSpreadsheet className="w-4 h-4 text-sky-400" />
                 <span className="font-bold text-white text-sm">
                   Таблица отобранных прогнозов ({filteredMatches.length} матчей)
                 </span>
@@ -716,7 +720,7 @@ ${items}
 
               <div className="flex items-center gap-2 text-xs">
                 <span className="text-slate-400">Порог вероятности:</span>
-                <div className="flex bg-[#061024] p-1 rounded-xl border border-sky-500/25">
+                <div className="flex bg-[#02050E] p-1 rounded-xl border border-blue-500/25">
                   {[80, 85, 90].map((val) => (
                     <button
                       key={val}
@@ -724,7 +728,7 @@ ${items}
                       onClick={() => setConfidenceFilter(val)}
                       className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                         confidenceFilter === val
-                          ? 'bg-cyan-500 text-slate-950 shadow-sm font-semibold'
+                          ? 'bg-blue-600 text-white shadow-sm font-semibold'
                           : 'text-slate-400 hover:text-white'
                       }`}
                     >
@@ -736,10 +740,10 @@ ${items}
             </div>
 
             {/* REQUIRED TABLE (Clean aesthetic styling) */}
-            <div className="overflow-x-auto rounded-3xl border border-sky-500/25 bg-[#081226]/90 shadow-2xl backdrop-blur-xl">
+            <div className="overflow-x-auto rounded-3xl border border-blue-500/25 bg-[#030819]/95 shadow-2xl backdrop-blur-2xl">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-sky-500/20 bg-[#061024]/80 text-[11px] font-bold uppercase tracking-wider text-slate-300">
+                  <tr className="border-b border-blue-500/20 bg-[#020510]/95 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                     <th className="py-4 px-4 sm:px-6">1. Название матча</th>
                     <th className="py-4 px-4">2. Время начала</th>
                     <th className="py-4 px-4 sm:px-6">3. Прогнозируемые события</th>
@@ -748,21 +752,21 @@ ${items}
                     <th className="py-4 px-4 text-center">Действие</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-sky-500/15 text-sm">
+                <tbody className="divide-y divide-blue-500/15 text-sm">
                   {filteredMatches.map((match) => {
                     const isExpanded = expandedReasoning[match.id];
                     return (
                       <tr
                         key={match.id}
-                        className="hover:bg-sky-950/25 transition-colors group"
+                        className="hover:bg-blue-900/15 transition-colors group"
                       >
                         {/* 1. Название матча */}
                         <td className="py-5 px-4 sm:px-6 align-top">
                           <div className="space-y-1">
-                            <div className="text-[11px] font-semibold text-sky-400 uppercase tracking-wide">
+                            <div className="text-[10px] font-semibold text-blue-400 uppercase tracking-wider">
                               {match.league}
                             </div>
-                            <div className="font-extrabold text-white text-base group-hover:text-cyan-300 transition-colors">
+                            <div className="font-bold text-white text-base group-hover:text-sky-300 transition-colors">
                               {match.matchName}
                             </div>
                             <div className="text-xs text-slate-400 flex items-center gap-1.5">
@@ -775,8 +779,8 @@ ${items}
 
                         {/* 2. Время начала */}
                         <td className="py-5 px-4 align-top">
-                          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#061024] border border-sky-500/25 text-slate-200 font-mono-data text-xs font-bold shadow-inner">
-                            <Clock className="w-3.5 h-3.5 text-cyan-400" />
+                          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#030919] border border-blue-500/25 text-slate-200 font-mono-data text-xs font-bold shadow-inner">
+                            <Clock className="w-3.5 h-3.5 text-sky-400" />
                             <span>{match.time}</span>
                           </div>
                         </td>
@@ -787,21 +791,21 @@ ${items}
                             {match.predictions.map((p, pIdx) => (
                               <div
                                 key={pIdx}
-                                className="p-2.5 rounded-xl bg-[#061024] border border-sky-500/20 flex items-center justify-between gap-3 shadow-inner"
+                                className="p-2.5 rounded-xl bg-[#030919] border border-blue-500/20 flex items-center justify-between gap-3 shadow-inner"
                               >
                                 <div className="space-y-0.5">
                                   <div className="font-bold text-white text-xs sm:text-sm">
                                     {p.event}
                                   </div>
                                   <div className="text-[10px] text-slate-400 flex items-center gap-1.5">
-                                    <span className="text-amber-300 font-semibold font-mono-data">
+                                    <span className="text-sky-300 font-semibold font-mono-data">
                                       Кэф ~{p.estimatedOdds}
                                     </span>
                                     <span>•</span>
-                                    <span className="text-cyan-400 font-medium">{p.tag}</span>
+                                    <span className="text-blue-400 font-medium">{p.tag}</span>
                                   </div>
                                 </div>
-                                <span className="text-xs font-black text-cyan-400 px-2.5 py-0.5 rounded-lg bg-cyan-950/70 border border-cyan-500/30 font-mono-data">
+                                <span className="text-xs font-bold text-sky-300 px-2.5 py-0.5 rounded-lg bg-blue-950/80 border border-blue-500/30 font-mono-data">
                                   {p.probability}%
                                 </span>
                               </div>
@@ -812,10 +816,10 @@ ${items}
                         {/* 4. Вероятность */}
                         <td className="py-5 px-4 text-center align-top">
                           <div className="space-y-1">
-                            <span className="inline-block px-3 py-1.5 rounded-xl font-extrabold text-sm bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 font-mono-data">
+                            <span className="inline-block px-3 py-1.5 rounded-xl font-bold text-sm bg-blue-950/80 border border-blue-500/30 text-sky-300 font-mono-data">
                               {Math.max(...match.predictions.map((p) => p.probability))}%
                             </span>
-                            <div className="text-[10px] text-cyan-400/80 font-bold uppercase tracking-wider">
+                            <div className="text-[10px] text-blue-400/80 font-bold uppercase tracking-wider">
                               Железобетон
                             </div>
                           </div>
@@ -834,21 +838,21 @@ ${items}
                               <button
                                 type="button"
                                 onClick={() => toggleReasoning(match.id)}
-                                className="text-[11px] text-cyan-400 hover:text-cyan-300 font-bold underline cursor-pointer"
+                                className="text-[11px] text-sky-400 hover:text-sky-300 font-bold underline cursor-pointer"
                               >
                                 {isExpanded ? 'Свернуть' : 'Подробнее'}
                               </button>
                             )}
 
                             {match.keyStats && match.keyStats.length > 0 && (
-                              <div className="space-y-1 pt-1.5 border-t border-sky-500/15">
+                              <div className="space-y-1 pt-1.5 border-t border-blue-500/15">
                                 {(isExpanded ? match.keyStats : match.keyStats.slice(0, 1)).map(
                                   (stat, sIdx) => (
                                     <div
                                       key={sIdx}
                                       className="text-[11px] text-slate-400 flex items-start gap-1.5"
                                     >
-                                      <span className="text-cyan-400 font-bold">•</span>
+                                      <span className="text-sky-400 font-bold">•</span>
                                       <span>{stat}</span>
                                     </div>
                                   )
@@ -857,8 +861,8 @@ ${items}
                             )}
 
                             {/* Verdict */}
-                            <div className="bg-[#061024] border border-sky-500/20 rounded-xl p-2.5 text-xs text-slate-300 flex items-start gap-2 shadow-inner">
-                              <span className="font-extrabold text-amber-400 shrink-0">
+                            <div className="bg-[#030919] border border-blue-500/20 border-l-2 border-l-sky-400 rounded-xl p-3 text-xs text-slate-300 flex items-start gap-2 shadow-inner">
+                              <span className="font-extrabold text-sky-300 shrink-0">
                                 Вердикт:
                               </span>
                               <span className="italic text-slate-300">{match.brotherVerdict}</span>
@@ -872,10 +876,10 @@ ${items}
                             type="button"
                             onClick={() => copyMatchForecast(match)}
                             title="Скопировать прогноз матча"
-                            className="p-2.5 rounded-xl bg-[#061024] hover:bg-sky-900/40 border border-sky-500/25 text-slate-300 hover:text-white transition-all cursor-pointer shadow-inner"
+                            className="p-2.5 rounded-xl bg-[#030919] hover:bg-blue-900/40 border border-blue-500/25 text-slate-300 hover:text-white transition-all cursor-pointer shadow-inner"
                           >
                             {copiedId === match.id ? (
-                              <Check className="w-4 h-4 text-cyan-400" />
+                              <Check className="w-4 h-4 text-sky-400" />
                             ) : (
                               <Copy className="w-4 h-4" />
                             )}
@@ -894,7 +898,7 @@ ${items}
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-sky-500/15 bg-[#040814] py-6 text-center text-xs text-slate-500 relative z-10">
+      <footer className="border-t border-blue-500/15 bg-[#01030B] py-6 text-center text-xs text-slate-500 relative z-10">
         <div className="max-w-7xl mx-auto px-4">
           <p className="font-medium text-slate-400">
             «БРАТ» • Реальный ИИ-аналитик спортивных событий
