@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ShieldCheck,
   Flame,
@@ -106,6 +106,15 @@ export default function App() {
   const [expressCopied, setExpressCopied] = useState<boolean>(false);
   const [confidenceFilter, setConfidenceFilter] = useState<number>(80);
   const [expandedReasoning, setExpandedReasoning] = useState<Record<string, boolean>>({});
+  const [cooldown, setCooldown] = useState<number>(0);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = setInterval(() => {
+      setCooldown((c) => Math.max(0, c - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [cooldown]);
 
   const analysisSteps = [
     'Поиск официальных расписаний через Google Search в реальном времени...',
@@ -169,9 +178,11 @@ export default function App() {
     } catch (err: any) {
       console.error(err);
       clearInterval(stageInterval);
-      setErrorMessage(
-        err?.message || 'Не удалось получить данные с сервера. Проверьте переменную окружения GEMINI_API_KEY.'
-      );
+      const msg = err?.message || 'Не удалось получить данные с сервера.';
+      setErrorMessage(msg);
+      if (msg.includes('429') || msg.includes('лимит') || msg.includes('Rate Limit') || msg.includes('RESOURCE_EXHAUSTED')) {
+        setCooldown(40);
+      }
       setLoading(false);
     }
   };
@@ -483,12 +494,12 @@ ${items}
             <div className="pt-2">
               <button
                 type="button"
-                disabled={loading}
+                disabled={loading || cooldown > 0}
                 onClick={handleAnalyze}
-                className={`w-full relative group overflow-hidden rounded-2xl py-4 sm:py-5 px-6 font-brand font-bold text-base sm:text-lg tracking-wide uppercase transition-all duration-300 cursor-pointer shadow-xl ${
-                  loading
-                    ? 'bg-[#061026] text-slate-500 cursor-not-allowed border border-blue-500/20'
-                    : 'bg-gradient-to-r from-blue-600 via-sky-500 to-blue-600 bg-[length:200%_auto] hover:bg-right text-white shadow-[0_12px_36px_-6px_rgba(37,99,235,0.45)] hover:shadow-[0_16px_44px_-6px_rgba(37,99,235,0.65)] hover:-translate-y-0.5 active:translate-y-0 border border-sky-300/30'
+                className={`w-full relative group overflow-hidden rounded-2xl py-4 sm:py-5 px-6 font-brand font-bold text-base sm:text-lg tracking-wide uppercase transition-all duration-300 shadow-xl ${
+                  loading || cooldown > 0
+                    ? 'bg-[#061026] text-slate-400 cursor-not-allowed border border-blue-500/20'
+                    : 'bg-gradient-to-r from-blue-600 via-sky-500 to-blue-600 bg-[length:200%_auto] hover:bg-right text-white shadow-[0_12px_36px_-6px_rgba(37,99,235,0.45)] hover:shadow-[0_16px_44px_-6px_rgba(37,99,235,0.65)] hover:-translate-y-0.5 active:translate-y-0 border border-sky-300/30 cursor-pointer'
                 }`}
               >
                 <div className="flex items-center justify-center gap-3">
@@ -496,6 +507,13 @@ ${items}
                     <>
                       <div className="w-5 h-5 border-2 border-sky-400 border-t-transparent rounded-full animate-spin" />
                       <span className="tracking-wider text-sm sm:text-base font-sans">Идет поиск официальной сетки и аудит...</span>
+                    </>
+                  ) : cooldown > 0 ? (
+                    <>
+                      <Clock className="w-5 h-5 text-amber-400 animate-pulse" />
+                      <span className="tracking-wide text-amber-300 text-sm sm:text-base font-sans">
+                        Ожидание лимита Google API ({cooldown} сек)
+                      </span>
                     </>
                   ) : (
                     <>
@@ -573,12 +591,26 @@ ${items}
         {/* Error notification banner */}
         {errorMessage && (
           <div className="rounded-2xl bg-rose-950/40 border border-rose-500/40 p-5 text-sm text-rose-200 flex items-start gap-3 backdrop-blur-md">
-            <span className="text-xl">⚠️</span>
-            <div className="space-y-1">
-              <div className="font-bold text-white">Внимание: {errorMessage}</div>
-              <div className="text-xs text-rose-300/80 leading-relaxed">
-                Добавьте переменную окружения <code className="bg-black/50 px-1.5 py-0.5 rounded text-amber-300 font-mono">GEMINI_API_KEY</code> в настройках (Secrets в AI Studio, либо Environment Variables в Vercel, либо в файле <code className="bg-black/50 px-1.5 py-0.5 rounded text-amber-300 font-mono">.env</code>).
+            <span className="text-xl shrink-0">⚠️</span>
+            <div className="space-y-2 flex-1">
+              <div className="font-bold text-white text-sm sm:text-base leading-snug">
+                {errorMessage}
               </div>
+              {errorMessage.includes('429') || errorMessage.includes('лимит') || errorMessage.includes('Rate Limit') ? (
+                <div className="text-xs text-sky-200/90 leading-relaxed bg-blue-950/60 p-3.5 rounded-xl border border-blue-500/30 space-y-1">
+                  <div className="font-semibold text-emerald-400 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    <span>Ключ GEMINI_API_KEY активен и подтвержден</span>
+                  </div>
+                  <p className="text-slate-300">
+                    Google AI Studio временно приостановил запросы из-за минутного ограничения частоты бесплатного аккаунта. Таймер ожидания уже запущен на кнопке выше — подождите несколько секунд и повторите запрос.
+                  </p>
+                </div>
+              ) : errorMessage.includes('API_KEY_INVALID') || errorMessage.includes('GEMINI_API_KEY не обнаружен') ? (
+                <div className="text-xs text-rose-300/80 leading-relaxed">
+                  Проверьте переменную <code className="bg-black/50 px-1.5 py-0.5 rounded text-amber-300 font-mono">GEMINI_API_KEY</code> в настройках Vercel (Project Settings → Environment Variables) и обязательно сделайте <strong>Redeploy</strong>.
+                </div>
+              ) : null}
             </div>
           </div>
         )}

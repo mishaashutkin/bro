@@ -191,22 +191,63 @@ ${customFilterInstruction}
 `;
 
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
-      contents: prompt,
-      config: {
-        tools: [{ googleSearch: {} }],
-      },
-    });
+    const candidateModels = ['gemini-2.5-flash', 'gemini-flash-latest', 'gemini-3.8-flash'];
+    let lastError: any = null;
+    let responseText = '';
 
-    const text = response.text || '';
-    let parsed: BrotherResponse | null = null;
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
+    for (let i = 0; i < candidateModels.length; i++) {
+      const modelName = candidateModels[i];
       try {
-        parsed = JSON.parse(jsonMatch[0]) as BrotherResponse;
-      } catch (parseErr) {
-        console.warn('Direct regex JSON parse failed:', parseErr);
+        const response = await ai.models.generateContent({
+          model: modelName,
+          contents: prompt,
+          config: {
+            tools: [{ googleSearch: {} }],
+          },
+        });
+        responseText = response.text || '';
+        if (responseText) {
+          break;
+        }
+      } catch (err: any) {
+        lastError = err;
+        const msg = err?.message || String(err);
+        console.warn(`Model ${modelName} failed:`, msg);
+
+        const isRateLimit = msg.includes('RESOURCE_EXHAUSTED') || msg.includes('429') || msg.includes('quota');
+        if (isRateLimit && i < candidateModels.length - 1) {
+          await new Promise((resolve) => setTimeout(resolve, 2500));
+          continue;
+        }
+
+        if (msg.includes('API_KEY_INVALID') || msg.includes('API key not valid') || msg.includes('401')) {
+          throw err;
+        }
+      }
+    }
+
+    if (!responseText && lastError) {
+      throw lastError;
+    }
+
+    let parsed: BrotherResponse | null = null;
+    let cleanText = responseText.trim();
+    if (cleanText.includes('```json')) {
+      cleanText = cleanText.split('```json')[1].split('```')[0].trim();
+    } else if (cleanText.includes('```')) {
+      cleanText = cleanText.split('```')[1].split('```')[0].trim();
+    }
+
+    try {
+      parsed = JSON.parse(cleanText) as BrotherResponse;
+    } catch {
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          parsed = JSON.parse(jsonMatch[0]) as BrotherResponse;
+        } catch (parseErr) {
+          console.warn('Direct regex JSON parse failed:', parseErr);
+        }
       }
     }
 
@@ -235,8 +276,21 @@ ${customFilterInstruction}
     });
   } catch (error: any) {
     console.error('Error generating predictions from Gemini API:', error);
+    const rawMsg = error?.message || String(error);
+
+    let userFriendlyError = `Ошибка Gemini API: ${rawMsg}`;
+    if (rawMsg.includes('API_KEY_INVALID') || rawMsg.includes('API key not valid') || rawMsg.includes('401')) {
+      userFriendlyError = 'Неверный API ключ Gemini (API_KEY_INVALID). Проверьте ключ в Vercel: Project Settings → Environment Variables.';
+    } else if (rawMsg.includes('User location is not supported') || rawMsg.includes('location')) {
+      userFriendlyError = 'Региональное ограничение Google (User location is not supported). В настройках Vercel Function Region выберите регион США (us-east-1) или Франкфурт (fra1).';
+    } else if (rawMsg.includes('RESOURCE_EXHAUSTED') || rawMsg.includes('429')) {
+      userFriendlyError = 'Превышен минутный лимит запросов к бесплатному Gemini API (Rate Limit 429). Google ограничивает частоту бесплатных запросов в минуту. Подождите 30–60 секунд и повторите попытку.';
+    } else if (rawMsg.includes('FUNCTION_INVOCATION_TIMEOUT') || rawMsg.includes('timeout') || rawMsg.includes('504')) {
+      userFriendlyError = 'Таймаут ответа. Поиск по актуальным событиям занял больше времени, чем ожидалось. Попробуйте снова.';
+    }
+
     return res.status(500).json({
-      error: `Ошибка Gemini API: ${error?.message || 'Не удалось выполнить поиск реальных матчей'}`,
+      error: userFriendlyError,
     });
   }
 });
