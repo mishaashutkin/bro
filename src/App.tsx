@@ -18,6 +18,9 @@ import {
   Target,
   ArrowRight,
   TrendingUp,
+  Trophy,
+  Download,
+  FileText,
 } from 'lucide-react';
 
 interface MatchPrediction {
@@ -25,6 +28,8 @@ interface MatchPrediction {
   probability: number;
   estimatedOdds: string;
   tag: string;
+  isCombo?: boolean;
+  comboItems?: string[];
 }
 
 interface MatchAnalysis {
@@ -35,6 +40,7 @@ interface MatchAnalysis {
   matchName: string;
   time: string;
   status: string;
+  source?: string;
   predictions: MatchPrediction[];
   reasoning: string;
   keyStats: string[];
@@ -56,6 +62,7 @@ interface BrotherSummary {
   date: string;
   timeRange: string;
   userFilterQuery?: string;
+  lineSource?: string;
 }
 
 interface ApiResponse {
@@ -126,6 +133,29 @@ function isMatchMatchingQuery(
   });
 }
 
+function normalizeLeagueName(league: string): string {
+  if (!league) return 'Прочие турниры';
+  const clean = league.replace(/\s+/g, ' ').trim();
+  const lower = clean.toLowerCase();
+  if (lower.includes('champions league') || lower.includes('лига чемпионов')) return 'Лига чемпионов УЕФА';
+  if (lower.includes('europa league') || lower.includes('лига европы')) return 'Лига Европы УЕФА';
+  if (lower.includes('conference league') || lower.includes('лига конференций')) return 'Лига конференций УЕФА';
+  if (lower.includes('nations league') || lower.includes('лига наций')) return 'Лига наций УЕФА';
+  if (lower.includes('premier league') || lower.includes('апл') || lower.includes('англия • премьер')) return 'Английская Премьер-лига (АПЛ)';
+  if (lower.includes('la liga') || lower.includes('ла лига') || lower.includes('испания • ла лига') || lower.includes('primera')) return 'Испанская Ла Лига';
+  if (lower.includes('serie a') || lower.includes('серия а') || lower.includes('италия • серия а')) return 'Итальянская Серия А';
+  if (lower.includes('bundesliga') || lower.includes('бундеслига') || lower.includes('германия • бундеслига')) return 'Немецкая Бундеслига';
+  if (lower.includes('ligue 1') || lower.includes('лига 1') || lower.includes('франция • лига 1')) return 'Французская Лига 1';
+  if (lower.includes('рпл') || lower.includes('rpl') || lower.includes('россия • премьер')) return 'Российская Премьер-Лига (РПЛ)';
+  if (lower.includes('khl') || lower.includes('кхл')) return 'Континентальная хоккейная лига (КХЛ)';
+  if (lower.includes('nhl') || lower.includes('нхл')) return 'Национальная хоккейная лига (НХЛ)';
+  if (lower.includes('vhl') || lower.includes('вхл')) return 'Всероссийская хоккейная лига (ВХЛ)';
+  if (lower.includes('nba') || lower.includes('нба')) return 'Национальная баскетбольная ассоциация (НБА)';
+  if (lower.includes('euroleague') || lower.includes('евролига')) return 'Баскетбольная Евролига';
+  if (lower.includes('vtb') || lower.includes('втб')) return 'Единая лига ВТБ';
+  return clean;
+}
+
 export default function App() {
   const getLocalDateString = (d: Date = new Date()) => {
     const year = d.getFullYear();
@@ -151,12 +181,14 @@ export default function App() {
   // Analysis State
   const [loading, setLoading] = useState<boolean>(false);
   const [loadingStage, setLoadingStage] = useState<number>(0);
-  const [scannedCount, setScannedCount] = useState<number>(0);
   const [data, setData] = useState<ApiResponse | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [expressCopied, setExpressCopied] = useState<boolean>(false);
+  const [downloadFormat, setDownloadFormat] = useState<'csv' | 'txt' | null>(null);
   const [confidenceFilter, setConfidenceFilter] = useState<number>(80);
+  const [selectedLeague, setSelectedLeague] = useState<string>('all');
+  const [tableSearchQuery, setTableSearchQuery] = useState<string>('');
   const [expandedReasoning, setExpandedReasoning] = useState<Record<string, boolean>>({});
   const [cooldown, setCooldown] = useState<number>(0);
 
@@ -187,7 +219,6 @@ export default function App() {
   const handleAnalyze = async () => {
     setLoading(true);
     setLoadingStage(0);
-    setScannedCount(8);
     setErrorMessage(null);
     setData(null);
 
@@ -196,7 +227,6 @@ export default function App() {
         if (prev < analysisSteps.length - 1) return prev + 1;
         return prev;
       });
-      setScannedCount((prev) => Math.min(prev + Math.floor(Math.random() * 9 + 4), 48));
     }, 750);
 
     try {
@@ -249,11 +279,53 @@ export default function App() {
 
   const activeCustomQuery = (customMatchesInput.trim() || data?.brotherSummary?.userFilterQuery || '').trim();
 
-  const filteredMatches = data?.matches
+  // 1. Initial filtered matches
+  const baseFilteredMatches = data?.matches
     ? data.matches
         .filter((m) => m.predictions.some((p) => p.probability >= confidenceFilter))
-        .filter((m) => (!activeCustomQuery ? true : isMatchMatchingQuery(m, activeCustomQuery)))
+        .filter((m) => {
+          if (!activeCustomQuery) return true;
+          if (data?.brotherSummary?.userFilterQuery && data.matches.length === 1) return true;
+          return isMatchMatchingQuery(m, activeCustomQuery);
+        })
+        .filter((m) => {
+          if (!tableSearchQuery.trim()) return true;
+          const q = tableSearchQuery.toLowerCase().trim();
+          return (
+            m.matchName.toLowerCase().includes(q) ||
+            m.league.toLowerCase().includes(q) ||
+            m.predictions.some((p) => p.event.toLowerCase().includes(q))
+          );
+        })
     : [];
+
+  // 2. Compute available unique leagues with match counts
+  const availableLeagues = React.useMemo(() => {
+    const map = new Map<string, number>();
+    baseFilteredMatches.forEach((m) => {
+      const norm = normalizeLeagueName(m.league);
+      map.set(norm, (map.get(norm) || 0) + 1);
+    });
+    return Array.from(map.entries()).map(([name, count]) => ({ name, count }));
+  }, [baseFilteredMatches]);
+
+  // 3. Filter by selected league if applicable
+  const leagueFilteredMatches =
+    selectedLeague === 'all'
+      ? baseFilteredMatches
+      : baseFilteredMatches.filter((m) => normalizeLeagueName(m.league) === selectedLeague);
+
+  // 4. Group matches strictly by league: matches of the same league follow one after another
+  const filteredMatches = React.useMemo(() => {
+    return [...leagueFilteredMatches].sort((a, b) => {
+      const leagueA = normalizeLeagueName(a.league);
+      const leagueB = normalizeLeagueName(b.league);
+      if (leagueA !== leagueB) {
+        return leagueA.localeCompare(leagueB, 'ru');
+      }
+      return (a.time || '').localeCompare(b.time || '');
+    });
+  }, [leagueFilteredMatches]);
 
   const toggleReasoning = (id: string) => {
     setExpandedReasoning((prev) => ({
@@ -309,10 +381,140 @@ ${items}
     setTimeout(() => setExpressCopied(false), 2500);
   };
 
+  const downloadTableCsv = () => {
+    if (!filteredMatches.length) return;
+
+    const headers = [
+      '№',
+      'Лига / Турнир',
+      'Матч',
+      'Хозяева',
+      'Гости',
+      'Время начала',
+      'Прогнозируемые события',
+      'Тип ставки',
+      'Вероятность (%)',
+      'Коэффициент',
+      'Обоснование',
+      'Ключевые факты',
+      'Вердикт Брата',
+    ];
+
+    const escapeCsv = (val: any) => {
+      if (val === null || val === undefined) return '""';
+      const str = String(val).replace(/"/g, '""');
+      return `"${str}"`;
+    };
+
+    const rows: string[] = [];
+    rows.push(headers.map(escapeCsv).join(';'));
+
+    filteredMatches.forEach((m, idx) => {
+      const events = m.predictions.map((p) => p.event).join(' | ');
+      const tags = m.predictions.map((p) => (p.isCombo ? '🔥 Комбо' : p.tag || 'Железобетон')).join(' | ');
+      const probs = m.predictions.map((p) => `${p.probability}%`).join(' | ');
+      const odds = m.predictions.map((p) => p.estimatedOdds).join(' | ');
+      const stats = (m.keyStats || []).join('; ');
+
+      rows.push(
+        [
+          idx + 1,
+          normalizeLeagueName(m.league),
+          m.matchName,
+          m.homeTeam,
+          m.awayTeam,
+          m.time,
+          events,
+          tags,
+          probs,
+          odds,
+          m.reasoning,
+          stats,
+          m.brotherVerdict,
+        ]
+          .map(escapeCsv)
+          .join(';')
+      );
+    });
+
+    const csvContent = '\uFEFF' + rows.join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `brother_predictions_${selectedDate}_${selectedSport}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    setDownloadFormat('csv');
+    setTimeout(() => setDownloadFormat(null), 2500);
+  };
+
+  const downloadTableTxt = () => {
+    if (!filteredMatches.length) return;
+
+    const sportObj = SPORTS.find((s) => s.id === selectedSport);
+    const lines: string[] = [
+      '═════════════════════════════════════════════════════════════════',
+      '          ПРОГНОЗЫ ОТ «БРАТА» (ЖЕЛЕЗОБЕТОН ≥ 80%)',
+      `  Дата событий: ${selectedDate}`,
+      `  Вид спорта: ${sportObj?.name || 'Спорт'}`,
+      `  Интервал времени: с ${startTime} до ${endTime}`,
+      `  Всего отобрано матчей: ${filteredMatches.length}`,
+      '═════════════════════════════════════════════════════════════════\n',
+    ];
+
+    let currentLeague = '';
+    filteredMatches.forEach((m, idx) => {
+      const league = normalizeLeagueName(m.league);
+      if (league !== currentLeague) {
+        currentLeague = league;
+        lines.push(`\n🏆 [${league.toUpperCase()}]\n${'─'.repeat(60)}`);
+      }
+
+      lines.push(`\n${idx + 1}. ${m.matchName} | Время: ${m.time}`);
+      m.predictions.forEach((p) => {
+        lines.push(`   🎯 ${p.event} [Вероятность: ${p.probability}% | Кэф: ~${p.estimatedOdds}] (${p.isCombo ? '🔥 Комбо' : p.tag})`);
+        if (p.comboItems && p.comboItems.length > 0) {
+          lines.push(`      Состав комбо: ${p.comboItems.join(' + ')}`);
+        }
+      });
+      lines.push(`   📊 Обоснование: ${m.reasoning}`);
+      if (m.keyStats && m.keyStats.length > 0) {
+        lines.push(`   📌 Факты: ${m.keyStats.join('; ')}`);
+      }
+      lines.push(`   💪 Вердикт Брата: "${m.brotherVerdict}"`);
+    });
+
+    lines.push('\n\n═════════════════════════════════════════════════════════════════');
+    lines.push('Удачных ставок! Грамотно распределяйте банкролл.');
+
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `brother_predictions_${selectedDate}_${selectedSport}.txt`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    setDownloadFormat('txt');
+    setTimeout(() => setDownloadFormat(null), 2500);
+  };
+
   const setQuickDate = (offsetDays: number) => {
     const d = new Date();
     d.setDate(d.getDate() + offsetDays);
-    setSelectedDate(getLocalDateString(d));
+    const dateStr = getLocalDateString(d);
+    setSelectedDate(dateStr);
+    if (offsetDays > 0) {
+      // For future dates (tomorrow/day after tomorrow), default to full day so user doesn't miss daytime matches
+      setStartTime('00:00');
+      setEndTime('23:59');
+    }
   };
 
   return (
@@ -443,7 +645,14 @@ ${items}
                 <input
                   type="date"
                   value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
+                  onChange={(e) => {
+                    const newDate = e.target.value;
+                    setSelectedDate(newDate);
+                    if (newDate && newDate !== todayStr && startTime !== '00:00') {
+                      setStartTime('00:00');
+                      setEndTime('23:59');
+                    }
+                  }}
                   className="w-full bg-[#030919] border border-blue-500/20 hover:border-blue-400/40 focus:border-sky-400 rounded-xl px-4 py-3 text-white text-sm font-semibold outline-none transition-all shadow-inner"
                 />
               </div>
@@ -638,15 +847,6 @@ ${items}
                   Прочесываем расписание событий ({startTime} – {endTime})
                 </h3>
               </div>
-
-              <div className="flex items-center gap-3 self-start sm:self-auto">
-                <div className="px-4 py-2 rounded-xl bg-[#030919] border border-blue-500/25 text-center">
-                  <div className="text-[10px] text-slate-400">Событий в обработке</div>
-                  <div className="text-lg font-black text-sky-400 font-mono-data">
-                    {scannedCount}+
-                  </div>
-                </div>
-              </div>
             </div>
 
             {/* Step list */}
@@ -690,7 +890,24 @@ ${items}
               <div className="font-bold text-white text-sm sm:text-base leading-snug">
                 {errorMessage}
               </div>
-              {errorMessage.includes('429') || errorMessage.includes('лимит') || errorMessage.includes('Rate Limit') ? (
+              {errorMessage.includes('leaked') || errorMessage.includes('PERMISSION_DENIED') ? (
+                <div className="text-xs text-amber-200/95 leading-relaxed bg-amber-950/60 p-4 rounded-xl border border-amber-500/40 space-y-2">
+                  <div className="font-semibold text-amber-300 flex items-center gap-1.5 text-sm">
+                    <span>🚫 Ключ был опубликован в открытом доступе и заблокирован Google</span>
+                  </div>
+                  <p className="text-slate-300">
+                    Файл с ключом попал в публичный репозиторий GitHub (например, из-за опечатки в названии файла, например <code className="bg-black/50 px-1 py-0.5 rounded text-amber-400 font-mono">.evn</code> вместо <code className="bg-black/50 px-1 py-0.5 rounded text-emerald-400 font-mono">.env</code>). Роботы безопасности Google мгновенно аннулируют такие ключи.
+                  </p>
+                  <p className="text-slate-200 font-medium">
+                    Что нужно сделать:
+                  </p>
+                  <ol className="list-decimal pl-5 space-y-1 text-slate-300">
+                    <li>Создайте новый ключ в <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-sky-400 underline font-semibold">Google AI Studio</a>.</li>
+                    <li>Вставьте его в <strong>Vercel</strong> → <em>Settings</em> → <em>Environment Variables</em> → <code className="bg-black/50 px-1 py-0.5 rounded text-amber-300 font-mono">GEMINI_API_KEY</code>.</li>
+                    <li>Удалите файл с ключом из репозитория GitHub и сделайте <strong>Redeploy</strong> в Vercel.</li>
+                  </ol>
+                </div>
+              ) : errorMessage.includes('429') || errorMessage.includes('лимит') || errorMessage.includes('Rate Limit') ? (
                 <div className="text-xs text-sky-200/90 leading-relaxed bg-blue-950/60 p-3.5 rounded-xl border border-blue-500/30 space-y-1">
                   <div className="font-semibold text-emerald-400 flex items-center gap-1.5">
                     <CheckCircle2 className="w-4 h-4 shrink-0" />
@@ -771,12 +988,21 @@ ${items}
             <div className="sapphire-panel rounded-3xl p-6 sm:p-8 space-y-6">
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-blue-500/20 pb-4">
                 <div className="space-y-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sky-400 font-bold text-xs uppercase tracking-wider">
                       Резюме анализа
                     </span>
-                    <span className="text-xs px-2.5 py-0.5 rounded-full bg-blue-950/70 border border-blue-600/30 text-sky-200 font-mono-data">
-                      {data.brotherSummary.timeRange}
+                    <span className="text-xs px-2.5 py-0.5 rounded-full bg-blue-950/70 border border-blue-500/40 text-sky-200 font-mono-data flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5 text-sky-400" />
+                      <span>{data.brotherSummary.date}</span>
+                    </span>
+                    <span className="text-xs px-2.5 py-0.5 rounded-full bg-blue-950/70 border border-blue-600/30 text-sky-200 font-mono-data flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-sky-400" />
+                      <span>{data.brotherSummary.timeRange}</span>
+                    </span>
+                    <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-950/70 border border-emerald-500/40 text-emerald-300 font-medium flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>{data.brotherSummary.lineSource || 'Линия БК проверена'}</span>
                     </span>
                     {data.brotherSummary.userFilterQuery && (
                       <span className="text-xs px-2.5 py-0.5 rounded-full bg-amber-950/70 border border-amber-500/40 text-amber-300 font-medium flex items-center gap-1">
@@ -790,11 +1016,31 @@ ${items}
                   </h2>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <button
+                    type="button"
+                    onClick={downloadTableCsv}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-emerald-600/20 cursor-pointer active:scale-95"
+                    title="Скачать всю таблицу в формате Excel (CSV)"
+                  >
+                    {downloadFormat === 'csv' ? <Check className="w-4 h-4 text-white" /> : <Download className="w-4 h-4 text-white" />}
+                    <span>{downloadFormat === 'csv' ? 'Скачано!' : 'Скачать Excel / CSV'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={downloadTableTxt}
+                    className="flex items-center gap-2 px-3.5 py-2.5 bg-[#030919] hover:bg-[#07153a] border border-blue-500/30 hover:border-blue-400/50 text-slate-200 hover:text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer shadow-inner active:scale-95"
+                    title="Скачать подробный текстовый отчет с прогнозами"
+                  >
+                    {downloadFormat === 'txt' ? <Check className="w-4 h-4 text-sky-400" /> : <FileText className="w-4 h-4 text-sky-400" />}
+                    <span>{downloadFormat === 'txt' ? 'Скачано!' : 'Отчет (.TXT)'}</span>
+                  </button>
+
                   <button
                     type="button"
                     onClick={copyExpress}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 hover:from-blue-500 hover:via-indigo-500 hover:to-sky-400 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-blue-500/20 cursor-pointer"
+                    className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 hover:from-blue-500 hover:via-indigo-500 hover:to-sky-400 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-blue-500/20 cursor-pointer active:scale-95"
                   >
                     {expressCopied ? <Check className="w-4 h-4" /> : <Zap className="w-4 h-4" />}
                     <span>{expressCopied ? 'Скопировано!' : 'Собрать экспресс'}</span>
@@ -848,36 +1094,121 @@ ${items}
             </div>
 
             {/* Filter and Table Tools */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#030919]/95 border border-blue-500/25 p-4 rounded-2xl">
-              <div className="flex items-center gap-2.5">
-                <FileSpreadsheet className="w-4 h-4 text-sky-400" />
-                <span className="font-bold text-white text-sm">
-                  Таблица отобранных прогнозов ({filteredMatches.length} матчей)
-                </span>
-                <span className="text-xs text-slate-400">
-                  • Меньше 80% отсеяно
-                </span>
+            <div className="space-y-3">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-[#030919]/95 border border-blue-500/25 p-4 rounded-2xl">
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <FileSpreadsheet className="w-4 h-4 text-sky-400" />
+                    <span className="font-bold text-white text-sm">
+                      Таблица отобранных прогнозов ({filteredMatches.length} матчей)
+                    </span>
+                    <span className="text-xs text-slate-400 hidden sm:inline">
+                      • Строго ≥ 80% • По лигам
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 sm:border-l sm:border-blue-500/20 sm:pl-3">
+                    <button
+                      type="button"
+                      onClick={downloadTableCsv}
+                      title="Скачать всю таблицу в Excel / CSV"
+                      className="flex items-center gap-1 px-2.5 py-1 bg-emerald-950/70 hover:bg-emerald-900/80 border border-emerald-500/40 text-emerald-300 hover:text-white rounded-lg text-xs font-semibold transition-all cursor-pointer shadow-inner active:scale-95"
+                    >
+                      {downloadFormat === 'csv' ? <Check className="w-3.5 h-3.5" /> : <Download className="w-3.5 h-3.5" />}
+                      <span>{downloadFormat === 'csv' ? 'Скачано!' : 'CSV / Excel'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={downloadTableTxt}
+                      title="Скачать отчет в TXT"
+                      className="flex items-center gap-1 px-2.5 py-1 bg-[#030919] hover:bg-blue-950/60 border border-blue-500/30 text-slate-300 hover:text-white rounded-lg text-xs font-semibold transition-all cursor-pointer shadow-inner active:scale-95"
+                    >
+                      {downloadFormat === 'txt' ? <Check className="w-3.5 h-3.5 text-sky-400" /> : <FileText className="w-3.5 h-3.5 text-sky-400" />}
+                      <span>TXT</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="relative min-w-[200px] flex-1 sm:flex-initial">
+                    <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={tableSearchQuery}
+                      onChange={(e) => setTableSearchQuery(e.target.value)}
+                      placeholder="Поиск по команде или лиге..."
+                      className="w-full bg-[#02050E] border border-blue-500/25 rounded-xl pl-8 pr-7 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-400 transition-colors"
+                    />
+                    {tableSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setTableSearchQuery('')}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="text-slate-400 hidden sm:inline">Порог:</span>
+                    <div className="flex bg-[#02050E] p-1 rounded-xl border border-blue-500/25">
+                      {[80, 85, 90].map((val) => (
+                        <button
+                          key={val}
+                          type="button"
+                          onClick={() => setConfidenceFilter(val)}
+                          className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                            confidenceFilter === val
+                              ? 'bg-blue-600 text-white shadow-sm font-semibold'
+                              : 'text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          {val}%+
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              <div className="flex items-center gap-2 text-xs">
-                <span className="text-slate-400">Порог вероятности:</span>
-                <div className="flex bg-[#02050E] p-1 rounded-xl border border-blue-500/25">
-                  {[80, 85, 90].map((val) => (
+              {/* League Filter Chips Bar */}
+              {availableLeagues.length > 1 && (
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar px-1">
+                  <span className="text-xs text-slate-400 font-bold uppercase tracking-wider shrink-0 flex items-center gap-1.5 pl-0.5">
+                    <Trophy className="w-3.5 h-3.5 text-sky-400" />
+                    <span>Лиги:</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedLeague('all')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
+                      selectedLeague === 'all'
+                        ? 'bg-blue-600 text-white shadow-md shadow-blue-500/30 border border-sky-400/40'
+                        : 'bg-[#030919] border border-blue-500/20 text-slate-400 hover:text-white hover:border-blue-400/40'
+                    }`}
+                  >
+                    Все лиги ({baseFilteredMatches.length})
+                  </button>
+                  {availableLeagues.map((l) => (
                     <button
-                      key={val}
+                      key={l.name}
                       type="button"
-                      onClick={() => setConfidenceFilter(val)}
-                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                        confidenceFilter === val
-                          ? 'bg-blue-600 text-white shadow-sm font-semibold'
-                          : 'text-slate-400 hover:text-white'
+                      onClick={() => setSelectedLeague(l.name)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                        selectedLeague === l.name
+                          ? 'bg-blue-600 text-white shadow-md shadow-blue-500/30 border border-sky-400/40'
+                          : 'bg-[#030919] border border-blue-500/20 text-slate-400 hover:text-white hover:border-blue-400/40'
                       }`}
                     >
-                      {val}%+
+                      <span>{l.name}</span>
+                      <span className="px-1.5 py-0.2 rounded-full bg-black/40 text-[10px] text-sky-300 font-mono-data">
+                        {l.count}
+                      </span>
                     </button>
                   ))}
                 </div>
-              </div>
+              )}
             </div>
 
             {/* REQUIRED TABLE (Clean aesthetic styling) */}
@@ -894,18 +1225,49 @@ ${items}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-blue-500/15 text-sm">
-                  {filteredMatches.map((match) => {
+                  {filteredMatches.map((match, idx) => {
                     const isExpanded = expandedReasoning[match.id];
+                    const currentLeague = normalizeLeagueName(match.league);
+                    const prevLeague = idx > 0 ? normalizeLeagueName(filteredMatches[idx - 1].league) : null;
+                    const isNewLeague = currentLeague !== prevLeague;
+                    const leagueMatchCount = filteredMatches.filter(
+                      (m) => normalizeLeagueName(m.league) === currentLeague
+                    ).length;
+
                     return (
-                      <tr
-                        key={match.id}
-                        className="hover:bg-blue-900/15 transition-colors group"
-                      >
+                      <React.Fragment key={match.id}>
+                        {isNewLeague && (
+                          <tr className="bg-gradient-to-r from-[#051336] via-[#091f52] to-[#030919] border-y border-blue-400/30">
+                            <td colSpan={6} className="py-2.5 px-4 sm:px-6">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2.5">
+                                  <div className="w-6 h-6 rounded-lg bg-sky-500/20 border border-sky-400/40 flex items-center justify-center text-sky-300">
+                                    <Trophy className="w-3.5 h-3.5" />
+                                  </div>
+                                  <span className="font-brand font-bold text-white text-xs sm:text-sm tracking-wide uppercase">
+                                    {currentLeague}
+                                  </span>
+                                </div>
+                                <span className="text-[11px] text-sky-200/90 font-mono-data font-semibold bg-blue-900/60 px-2.5 py-0.5 rounded-lg border border-blue-400/30">
+                                  {leagueMatchCount} {leagueMatchCount === 1 ? 'матч' : leagueMatchCount < 5 ? 'матча' : 'матчей'}
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                        <tr className="hover:bg-blue-900/15 transition-colors group">
                         {/* 1. Название матча */}
                         <td className="py-5 px-4 sm:px-6 align-top">
                           <div className="space-y-1">
-                            <div className="text-[10px] font-semibold text-blue-400 uppercase tracking-wider">
-                              {match.league}
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <div className="text-[10px] font-semibold text-blue-400 uppercase tracking-wider">
+                                {match.league}
+                              </div>
+                              {match.source && (
+                                <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-950/70 border border-emerald-500/35 text-emerald-300 font-medium">
+                                  ✓ {match.source}
+                                </span>
+                              )}
                             </div>
                             <div className="font-bold text-white text-base group-hover:text-sky-300 transition-colors">
                               {match.matchName}
@@ -928,29 +1290,82 @@ ${items}
 
                         {/* 3. Прогнозируемые события */}
                         <td className="py-5 px-4 sm:px-6 align-top">
-                          <div className="space-y-2">
-                            {match.predictions.map((p, pIdx) => (
-                              <div
-                                key={pIdx}
-                                className="p-2.5 rounded-xl bg-[#030919] border border-blue-500/20 flex items-center justify-between gap-3 shadow-inner"
-                              >
-                                <div className="space-y-0.5">
-                                  <div className="font-bold text-white text-xs sm:text-sm">
-                                    {p.event}
+                          <div className="space-y-2.5">
+                            {match.predictions.map((p, pIdx) => {
+                              const isCombo =
+                                p.isCombo === true ||
+                                (p.tag && p.tag.toLowerCase().includes('комбо')) ||
+                                p.event.toLowerCase().includes('комбо') ||
+                                (p.comboItems && p.comboItems.length > 1);
+
+                              if (isCombo) {
+                                return (
+                                  <div
+                                    key={pIdx}
+                                    className="p-3 rounded-2xl bg-gradient-to-br from-amber-950/40 via-[#0a1024] to-[#040816] border border-amber-500/40 shadow-[0_4px_20px_-4px_rgba(245,158,11,0.18)] space-y-2 transition-all hover:border-amber-400/60"
+                                  >
+                                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[10px] font-bold uppercase tracking-wider">
+                                        <Flame className="w-3 h-3 text-amber-400 fill-amber-400" />
+                                        <span>КОМБО-СТАВКА</span>
+                                      </span>
+                                      <span className="text-xs font-bold text-amber-300 px-2.5 py-0.5 rounded-lg bg-amber-950/80 border border-amber-500/40 font-mono-data">
+                                        {p.probability}%
+                                      </span>
+                                    </div>
+
+                                    <div className="font-bold text-white text-xs sm:text-sm leading-snug">
+                                      {p.event}
+                                    </div>
+
+                                    {/* Sub-items / Components of the combo (e.g. Победа 1, обе забьют, фора 1) */}
+                                    {p.comboItems && p.comboItems.length > 0 && (
+                                      <div className="flex flex-wrap gap-1.5 pt-0.5">
+                                        {p.comboItems.map((item, iIdx) => (
+                                          <span
+                                            key={iIdx}
+                                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#030919] border border-amber-400/30 text-amber-200 text-[10px] font-medium"
+                                          >
+                                            <span className="text-amber-400 font-bold">✓</span>
+                                            <span>{item}</span>
+                                          </span>
+                                        ))}
+                                      </div>
+                                    )}
+
+                                    <div className="text-[10px] text-slate-400 flex items-center justify-between pt-1 border-t border-amber-500/20">
+                                      <span className="text-amber-300 font-bold font-mono-data">
+                                        Общий кэф ~{p.estimatedOdds}
+                                      </span>
+                                      <span className="text-amber-400/80 font-medium">Высокая синергия</span>
+                                    </div>
                                   </div>
-                                  <div className="text-[10px] text-slate-400 flex items-center gap-1.5">
-                                    <span className="text-sky-300 font-semibold font-mono-data">
-                                      Кэф ~{p.estimatedOdds}
-                                    </span>
-                                    <span>•</span>
-                                    <span className="text-blue-400 font-medium">{p.tag}</span>
+                                );
+                              }
+
+                              return (
+                                <div
+                                  key={pIdx}
+                                  className="p-2.5 rounded-xl bg-[#030919] border border-blue-500/20 flex items-center justify-between gap-3 shadow-inner"
+                                >
+                                  <div className="space-y-0.5">
+                                    <div className="font-bold text-white text-xs sm:text-sm">
+                                      {p.event}
+                                    </div>
+                                    <div className="text-[10px] text-slate-400 flex items-center gap-1.5">
+                                      <span className="text-sky-300 font-semibold font-mono-data">
+                                        Кэф ~{p.estimatedOdds}
+                                      </span>
+                                      <span>•</span>
+                                      <span className="text-blue-400 font-medium">{p.tag || 'Железобетон'}</span>
+                                    </div>
                                   </div>
+                                  <span className="text-xs font-bold text-sky-300 px-2.5 py-0.5 rounded-lg bg-blue-950/80 border border-blue-500/30 font-mono-data">
+                                    {p.probability}%
+                                  </span>
                                 </div>
-                                <span className="text-xs font-bold text-sky-300 px-2.5 py-0.5 rounded-lg bg-blue-950/80 border border-blue-500/30 font-mono-data">
-                                  {p.probability}%
-                                </span>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </td>
 
@@ -1027,8 +1442,9 @@ ${items}
                           </button>
                         </td>
                       </tr>
-                    );
-                  })}
+                    </React.Fragment>
+                  );
+                })}
                 </tbody>
               </table>
             </div>
