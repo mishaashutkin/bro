@@ -1,7 +1,7 @@
 {
   "version": 2,
   "functions": {
-    "api/*.ts": {
+    "api/analyze-matches.ts": {
       "maxDuration": 60
     }
   },
