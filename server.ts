@@ -6,6 +6,7 @@ import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import { predictionCache } from './api/cache';
 import { getRealMatchesForDay, RealMatchItem, isTimeInRange } from './api/real-matches';
+import { translateTeamNameToRussian, translateMatchNameToRussian } from './api/russian-names';
 
 dotenv.config();
 
@@ -237,16 +238,18 @@ app.post('/api/analyze-matches', async (req: Request, res: Response) => {
     sport = 'football',
     date,
     startTime = '00:00',
-    endTime = '23:59',
+    endTime = '12:00',
     customQuery = '',
+    matchDepth = 'max',
   } = req.body;
 
   const targetDate = date || new Date().toISOString().split('T')[0];
   const cleanStartTime = startTime || '00:00';
-  const cleanEndTime = endTime || '23:59';
+  const cleanEndTime = endTime || '12:00';
   const cleanCustomQuery = typeof customQuery === 'string' ? customQuery.trim() : '';
+  const cleanMatchDepth = ['max', 'standard', 'compact'].includes(matchDepth) ? matchDepth : 'max';
 
-  const cacheKey = `v4_${sport}_${targetDate}_${cleanStartTime}_${cleanEndTime}_${cleanCustomQuery}`;
+  const cacheKey = `v5_${sport}_${targetDate}_${cleanStartTime}_${cleanEndTime}_${cleanCustomQuery}_${cleanMatchDepth}`;
 
   const cached = predictionCache.get<BrotherResponse>(cacheKey);
   if (cached) {
@@ -282,16 +285,34 @@ app.post('/api/analyze-matches', async (req: Request, res: Response) => {
       targetDate,
       cleanStartTime,
       cleanEndTime,
-      cleanCustomQuery
+      cleanCustomQuery,
+      cleanMatchDepth
     );
   } catch (err) {
     console.warn('Could not pre-fetch bookmaker matches:', err);
   }
 
+  // All 3 modes study events to the maximum extent:
+  // Максимальный = все матчи
+  // Стандартный = только известные матчи
+  // Компактный = малопопулярные матчи
+  const contextLimit = 300;
+  const targetMin = 35;
+  const targetMax = 75;
+  const targetRecommend = '40-70';
+  const baselineAnalyzed = 480;
+
+  const modeInstructionText =
+    cleanMatchDepth === 'standard'
+      ? 'РЕЖИМ: СТАНДАРТНЫЙ (ТОЛЬКО ИЗВЕСТНЫЕ МАТЧИ ПО МАКСИМУМУ). Изучить ПО МАКСИМУМУ исключительно известные, рейтинговые и топовые матчи тура (РПЛ, АПЛ, Ла Лига, Серия А, Бундеслига, Лига Чемпионов, Лига Европы, КХЛ, НХЛ, НБА и др.). Отобрать максимум качественных исходов от 80%+ надежности!'
+      : cleanMatchDepth === 'compact'
+      ? 'РЕЖИМ: КОМПАКТНЫЙ (МАЛОПОПУЛЯРНЫЕ МАТЧИ ПО МАКСИМУМУ). Изучить ПО МАКСИМУМУ исключительно малопопулярные, немедийные события (низшие лиги, смоллмаркеты, вторые/третьи дивизионы, региональные чемпионаты). Отобрать максимум качественных исходов от 80%+ надежности среди малопопулярных матчей!'
+      : 'РЕЖИМ: МАКСИМАЛЬНЫЙ (ВСЕ МАТЧИ ДНЯ ПО МАКСИМУМУ). Провести максимальный аудит абсолютно всей доступной линии БК (и топ-лиги, и средние лиги, и смоллмаркеты). Отобрать максимум надежных исходов с вероятностью от 80%!';
+
   const realMatchesContext =
     realBookmakerMatches.length > 0
       ? realBookmakerMatches
-          .slice(0, 100)
+          .slice(0, contextLimit)
           .map((m, i) => `${i + 1}. [${m.league}] ${m.matchName} | Время: ${m.time} | Источник: ${m.source}`)
           .join('\n')
       : '';
@@ -382,7 +403,8 @@ ${realMatchesContext}`
 `
     : `
 Ты — опытный спортивный аналитик «Брат», обладающий математическим чутьем и глубоким пониманием xG, составов, формы команд и движения коэффициентов.
-Твоя задача: детально проанализировать массив РЕАЛЬНЫХ МАТЧЕЙ ИЗ ОФИЦИАЛЬНОЙ ЛИНИИ БУКМЕКЕРСКОЙ КОНТОРЫ на дату ${targetDate} и отобрать от 20 до 50 матчей (рекомендуемый объем: 25-45 матчей) с максимальной математической вероятностью от 82% до 98% (железобетон).
+${modeInstructionText}
+Твоя задача: детально проанализировать массив РЕАЛЬНЫХ МАТЧЕЙ ИЗ ОФИЦИАЛЬНОЙ ЛИНИИ БУКМЕКЕРСКОЙ КОНТОРЫ на дату ${targetDate} и отобрать от ${targetMin} до ${targetMax} матчей (рекомендуемый объем: ${targetRecommend} матчей) с максимальной математической вероятностью от 80% до 98% (железобетон и комбо-ставки).
 
 ${
   realMatchesContext
@@ -390,21 +412,26 @@ ${
 ${realMatchesContext}
 
 СТРОЖАЙШЕЕ ПРАВИЛО:
-Ты ОБЯЗАН провести аудит ВСЕХ этих событий и отобрать в массив "matches" БОЛЬШОЙ РАСШИРЕННЫЙ СПИСОК: от 20 до 50 РЕАЛЬНЫХ МАТЧЕЙ (если в списке передано меньше 20 матчей, возьми все доступные события)!
-КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО ограничиваться 3-5 или 10 матчами! Пользователю нужна большая развернутая таблица от 20 до 50 матчей с высочайшей математической надежностью!
+Ты ОБЯЗАН провести аудит ВСЕХ этих событий и отобрать в массив "matches" МАКСИМАЛЬНО РАСШИРЕННЫЙ СПИСОК: от ${targetMin} до ${targetMax} РЕАЛЬНЫХ МАТЧЕЙ (если в списке передано меньше ${targetMin} матчей, возьми все доступные события)!
+КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО ограничиваться 3-5 или 10 матчами! Пользователю нужна большая развернутая таблица от ${targetMin} до ${targetMax} матчей с высочайшей математической надежностью!
 Все матчи должны быть СТРОГО И ИСКЛЮЧИТЕЛЬНО ИЗ СПИСКА РЕАЛЬНЫХ МАТЧЕЙ ВЫШЕ!
 Категорически запрещено выдумывать матчи, которых нет в этом списке!
 Сохраняй реальные названия команд, лигу и точное время начала из списка!`
     : `СПОРТ: ${sportName}
 ДАТА МАТЧЕЙ: ${targetDate} (Год: ${todayRealYear})
 ДИАПАЗОН ВРЕМЕНИ НАЧАЛА: с ${cleanStartTime} до ${cleanEndTime}
-Пользователь не указал конкретных команд. Выбери от 20 до 50 наиболее рейтинговых, интересных и ликвидных матчей тура в топовых лигах (для футбола: РПЛ, АПЛ, Ла Лига, Серия А, Бундеслига, Лига Чемпионов; для хоккея: КХЛ, НХЛ; для баскетбола: Единая лига ВТБ, Евролига, НБА), начинающихся в диапазоне с ${cleanStartTime} до ${cleanEndTime}. Выдай от 20 до 50 матчей!`
+Пользователь не указал конкретных команд. Выбери от ${targetMin} до ${targetMax} наиболее рейтинговых, интересных и ликвидных матчей тура в топовых лигах (для футбола: РПЛ, АПЛ, Ла Лига, Серия А, Бундеслига, Лига Чемпионов; для хоккея: КХЛ, НХЛ; для баскетбола: Единая лига ВТБ, Евролига, НБА), начинающихся в диапазоне с ${cleanStartTime} до ${cleanEndTime}. Выдай от ${targetMin} до ${targetMax} матчей!`
 }
 
 КРИТЕРИИ ОТБОРА ИСХОДОВ И ВЫЯВЛЕНИЕ КОМБО:
 1. Для каждого выбранного матча проведи глубокий расчет xG, формы команд в последних 5 встречах и очных поединков.
 2. Отбери надежные исходы с математической вероятностью 80% и выше (например, ТБ 1.5, Фора (+1.5) на фаворита или андердога, 1X / X2, Индивидуальный тотал больше 1.0, Победа с форой 0).
-3. ВАЖНЕЙШЕЕ ПРАВИЛО ПО КОМБО (КОМБО-СТАВКАМ):
+3. СТРОЖАЙШЕЕ ТРЕБОВАНИЕ К РУССКОМУ ЯЗЫКУ:
+   ВСЕ НАЗВАНИЯ МАТЧЕЙ, КОМАНД, ЛИГ И ПРОГНОЗОВ ОБЯЗАНЫ БЫТЬ СТРОГО НА РУССКОМ ЯЗЫКЕ!
+   Категорически запрещено оставлять названия команд на английском языке или латинице!
+   Если в списке название команды на английском (например, Arsenal, Real Madrid, Bayern Munich, Inter, Chelsea, Manchester City, Juventus, Barcelona, PSG, Serbia, Netherlands и т.д.), ты ОБЯЗАН написать общепринятое название на русском языке (Арсенал, Реал Мадрид, Бавария, Интер, Челси, Манчестер Сити, Ювентус, Барселона, ПСЖ, Сербия, Нидерланды)!
+   Поля "homeTeam", "awayTeam", "matchName" ("Хозяева — Гости"), "league" и "event" должны быть исключительно на русском языке!
+4. ВАЖНЕЙШЕЕ ПРАВИЛО ПО КОМБО (КОМБО-СТАВКАМ):
    Если ты видишь для матча синергию взаимосвязанных исходов с высокой проходимостью (к примеру: «Победа 1, обе забьют, фора 1» или «Победа 1 + Обе забьют», «1X + ТБ 1.5», «П1 + ТБ 2.5», «Фора 1 (-1) + Обе забьют», «Победа 1 + Индивидуальный тотал больше 1.5») — ОБЯЗАТЕЛЬНО включи такое КОМБО в массив "predictions" для этого матча!
    В объекте комбо-исхода укажи:
    - "event": "КОМБО: Победа 1 + Обе забьют + Фора 1 (-1)" (или конкретный состав комбо через «+»)
@@ -413,21 +440,21 @@ ${realMatchesContext}
    - "probability": рассчитанная математическая вероятность комбо (от 80%)
    - "estimatedOdds": суммарный коэффициент комбо (например "2.40", "3.10", "2.85")
    - "tag": "🔥 Комбо"
-4. В массив "matches" включи от 20 до 50 качественных матчей. В матче может быть от 1 до 3 прогнозов (одинар и/или комбо).
-5. Чтобы ответ уместился полностью и был предельно информативным:
+5. В массив "matches" включи от ${targetMin} до ${targetMax} качественных матчей. В матче может быть от 1 до 3 прогнозов (одинар и/или комбо).
+6. Чтобы ответ уместился полностью и был предельно информативным:
    - В reasoning: пиши емко и четко (1-2 плотных предложения с цифрами xG и формой).
    - В keyStats: ровно 2 конкретных факта.
    - В brotherVerdict: 1 емкий вердикт.
-6. Поле "unmatchedQueries" должно быть пустым ([]).
-7. СТРОЖАЙШЕЕ ПРАВИЛО ГРУППИРОВКИ ПО ЛИГАМ:
+7. Поле "unmatchedQueries" должно быть пустым ([]).
+8. СТРОЖАЙШЕЕ ПРАВИЛО ГРУППИРОВКИ ПО ЛИГАМ:
    Матчи в массиве "matches" ОБЯЗАНЫ быть сгруппированы по лигам и турнирам! Все матчи одной лиги (например, все матчи РПЛ или Лиги Наций) должны следовать СТРОГО ДРУГ ЗА ДРУГОМ (подряд), а не вперемешку!
 
 ОТВЕТ ДОЛЖЕН БЫТЬ СТРОГО В ФОРМАТЕ JSON (без markdown, чистый валидный JSON):
 {
   "brotherSummary": {
     "greeting": "Приветствие Брата с оценкой линии на выбранное время",
-    "matchesAnalyzedTotal": ${Math.max(realBookmakerMatches.length, 250)},
-    "matchesQualified": 30,
+    "matchesAnalyzedTotal": ${Math.max(realBookmakerMatches.length, baselineAnalyzed)},
+    "matchesQualified": ${targetRecommend.includes('-') ? targetRecommend.split('-')[0] : 35},
     "averageConfidence": 87,
     "brotherTip": "Конкретный полезный совет по банкролл-менеджменту",
     "sportName": "${sportName}",
@@ -522,6 +549,11 @@ ${realMatchesContext}
     if (parsed) {
       if (Array.isArray(parsed.matches)) {
         parsed.matches.forEach((m) => {
+          // Normalize and translate team and match names to Russian
+          m.homeTeam = translateTeamNameToRussian(m.homeTeam);
+          m.awayTeam = translateTeamNameToRussian(m.awayTeam);
+          m.matchName = translateMatchNameToRussian(m.matchName, m.homeTeam, m.awayTeam);
+
           m.predictions = (m.predictions || []).filter((p) => p.probability >= 80);
           if (!m.source) {
             m.source = 'Линия БК Марафон / LiveScore';

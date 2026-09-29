@@ -23,7 +23,11 @@ import {
   FileText,
   LayoutGrid,
   List,
+  Square,
+  CircleStop,
+  Layers,
 } from 'lucide-react';
+import { translateTeamNameToRussian, translateMatchNameToRussian } from '../api/russian-names';
 
 interface MatchPrediction {
   event: string;
@@ -97,8 +101,12 @@ function isMatchMatchingQuery(
       .replace(/\s+/g, ' ')
       .trim();
 
+  const ruHome = translateTeamNameToRussian(match.homeTeam || '');
+  const ruAway = translateTeamNameToRussian(match.awayTeam || '');
+  const ruMatch = translateMatchNameToRussian(match.matchName || '', ruHome, ruAway);
+
   const matchFullText = normalize(
-    `${match.homeTeam || ''} ${match.awayTeam || ''} ${match.matchName || ''} ${match.league || ''}`
+    `${match.homeTeam || ''} ${match.awayTeam || ''} ${match.matchName || ''} ${ruHome} ${ruAway} ${ruMatch} ${match.league || ''}`
   );
 
   const subQueries = query
@@ -158,6 +166,21 @@ function normalizeLeagueName(league: string): string {
   return clean;
 }
 
+export type ConfidenceFilterType = 'all' | 80 | 85 | 90;
+
+export function isPredictionMatchingConfidence(prob: number, filter: ConfidenceFilterType): boolean {
+  if (filter === 'all') return true;
+  if (filter === 80) return prob >= 80 && prob < 85;
+  if (filter === 85) return prob >= 85 && prob < 90;
+  if (filter === 90) return prob >= 90;
+  return true;
+}
+
+export function isMatchInConfidenceFilter(m: MatchAnalysis, filter: ConfidenceFilterType): boolean {
+  if (filter === 'all') return true;
+  return (m.predictions || []).some((p) => isPredictionMatchingConfidence(p.probability, filter));
+}
+
 export default function App() {
   const getLocalDateString = (d: Date = new Date()) => {
     const year = d.getFullYear();
@@ -170,8 +193,8 @@ export default function App() {
   const todayStr = getLocalDateString(now);
   const currentHours = String(now.getHours()).padStart(2, '0');
   const currentMinutes = String(now.getMinutes()).padStart(2, '0');
-  const defaultStartTime = `${currentHours}:${currentMinutes}`;
-  const defaultEndTime = '23:59';
+  const defaultStartTime = '00:00';
+  const defaultEndTime = '12:00';
 
   // Form State
   const [selectedSport, setSelectedSport] = useState<string>('football');
@@ -188,12 +211,17 @@ export default function App() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [expressCopied, setExpressCopied] = useState<boolean>(false);
   const [downloadFormat, setDownloadFormat] = useState<'csv' | 'txt' | null>(null);
-  const [confidenceFilter, setConfidenceFilter] = useState<number>(80);
+  const [confidenceFilter, setConfidenceFilter] = useState<ConfidenceFilterType>('all');
   const [selectedLeague, setSelectedLeague] = useState<string>('all');
   const [tableSearchQuery, setTableSearchQuery] = useState<string>('');
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
   const [expandedReasoning, setExpandedReasoning] = useState<Record<string, boolean>>({});
   const [cooldown, setCooldown] = useState<number>(0);
+  const [matchDepth, setMatchDepth] = useState<'max' | 'standard' | 'compact'>('max');
+  const [stopNotice, setStopNotice] = useState<string | null>(null);
+
+  const abortControllerRef = React.useRef<AbortController | null>(null);
+  const stageIntervalRef = React.useRef<any>(null);
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -212,17 +240,42 @@ export default function App() {
         `Формирование персонального вердикта Брата (все сторонние матчи исключены)...`,
       ]
     : [
-        'Поиск официальных расписаний через Google Search в реальном времени...',
+        matchDepth === 'max'
+          ? 'Сканирование расширенной сетки БК (максимум: все матчи линии)...'
+          : matchDepth === 'standard'
+          ? 'Сканирование сетки БК (максимум: только известные матчи)...'
+          : 'Сканирование сетки БК (максимум: малопопулярные матчи)...',
         'Фильтрация матчей строго по интервалу времени и вашему запросу...',
         'Аудит xG, текущих составов, кондиций команд и травм...',
         'Математический расчет: отбор исходов с вероятностью строго от 80%...',
         'Формирование братского вердикта и экспертного обоснования...',
       ];
 
+  const handleStopAnalyze = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    if (stageIntervalRef.current) {
+      clearInterval(stageIntervalRef.current);
+      stageIntervalRef.current = null;
+    }
+    setLoading(false);
+    setLoadingStage(0);
+    setStopNotice('Анализ был остановлен по вашему клику. Вы можете изменить параметры или запустить расчет снова.');
+  };
+
   const handleAnalyze = async () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     setLoading(true);
     setLoadingStage(0);
     setErrorMessage(null);
+    setStopNotice(null);
     setData(null);
 
     const stageInterval = setInterval(() => {
@@ -231,17 +284,20 @@ export default function App() {
         return prev;
       });
     }, 750);
+    stageIntervalRef.current = stageInterval;
 
     try {
       const response = await fetch('/api/analyze-matches', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({
           sport: selectedSport,
           date: selectedDate,
           startTime: startTime,
           endTime: endTime,
           customQuery: customMatchesInput.trim(),
+          matchDepth: matchDepth,
         }),
       });
 
@@ -263,14 +319,34 @@ export default function App() {
         throw new Error(result.error || `Ошибка сервера (${response.status})`);
       }
 
+      if (result && Array.isArray(result.matches)) {
+        result.matches.forEach((m) => {
+          m.homeTeam = translateTeamNameToRussian(m.homeTeam);
+          m.awayTeam = translateTeamNameToRussian(m.awayTeam);
+          m.matchName = translateMatchNameToRussian(m.matchName, m.homeTeam, m.awayTeam);
+        });
+      }
+
       setTimeout(() => {
-        clearInterval(stageInterval);
+        if (stageIntervalRef.current) {
+          clearInterval(stageIntervalRef.current);
+          stageIntervalRef.current = null;
+        }
         setData(result);
         setLoading(false);
       }, 1000);
     } catch (err: any) {
+      if (stageIntervalRef.current) {
+        clearInterval(stageIntervalRef.current);
+        stageIntervalRef.current = null;
+      }
+      if (err.name === 'AbortError' || String(err).includes('aborted')) {
+        setLoading(false);
+        setLoadingStage(0);
+        setStopNotice('Генерация прогноза успешно остановлена.');
+        return;
+      }
       console.error(err);
-      clearInterval(stageInterval);
       const msg = err?.message || 'Не удалось получить данные с сервера.';
       setErrorMessage(msg);
       if (msg.includes('429') || msg.includes('лимит') || msg.includes('Rate Limit') || msg.includes('RESOURCE_EXHAUSTED')) {
@@ -285,7 +361,7 @@ export default function App() {
   // 1. Initial filtered matches
   const baseFilteredMatches = data?.matches
     ? data.matches
-        .filter((m) => m.predictions.some((p) => p.probability >= confidenceFilter))
+        .filter((m) => isMatchInConfidenceFilter(m, confidenceFilter))
         .filter((m) => {
           if (!activeCustomQuery) return true;
           if (data?.brotherSummary?.userFilterQuery && data.matches.length === 1) return true;
@@ -361,19 +437,31 @@ ${match.reasoning}
   const copyExpress = () => {
     if (!filteredMatches.length) return;
     const items = filteredMatches
-      .map(
-        (m, idx) =>
-          `${idx + 1}. ${m.matchName} (${m.time}) — ${m.predictions[0].event} [${m.predictions[0].probability}% | кэф ~${m.predictions[0].estimatedOdds}]`
-      )
+      .map((m, idx) => {
+        const filteredPreds =
+          confidenceFilter === 'all'
+            ? m.predictions
+            : m.predictions.filter((p) => isPredictionMatchingConfidence(p.probability, confidenceFilter));
+        const activePred = filteredPreds.length > 0 ? filteredPreds[0] : m.predictions[0];
+        return `${idx + 1}. ${m.matchName} (${m.time}) — ${activePred.event} [${activePred.probability}% | кэф ~${activePred.estimatedOdds}]`;
+      })
       .join('\n');
 
     const totalOdds = filteredMatches
-      .reduce((acc, m) => acc * (parseFloat(m.predictions[0].estimatedOdds) || 1.45), 1)
+      .reduce((acc, m) => {
+        const filteredPreds =
+          confidenceFilter === 'all'
+            ? m.predictions
+            : m.predictions.filter((p) => isPredictionMatchingConfidence(p.probability, confidenceFilter));
+        const activePred = filteredPreds.length > 0 ? filteredPreds[0] : m.predictions[0];
+        return acc * (parseFloat(activePred?.estimatedOdds) || 1.45);
+      }, 1)
       .toFixed(2);
 
     const expressText = `🚀 ЭКСПРЕСС ОТ БРАТА (${selectedDate})
 Спорт: ${SPORTS.find((s) => s.id === selectedSport)?.name || 'Спорт'}
 Интервал: с ${startTime} до ${endTime}
+Фильтр: ${confidenceFilter === 'all' ? 'Все исходы (от 80%)' : `Категория ${confidenceFilter}%`}
 
 ${items}
 
@@ -413,10 +501,16 @@ ${items}
     rows.push(headers.map(escapeCsv).join(';'));
 
     filteredMatches.forEach((m, idx) => {
-      const events = m.predictions.map((p) => p.event).join(' | ');
-      const tags = m.predictions.map((p) => (p.isCombo ? '🔥 Комбо' : p.tag || 'Железобетон')).join(' | ');
-      const probs = m.predictions.map((p) => `${p.probability}%`).join(' | ');
-      const odds = m.predictions.map((p) => p.estimatedOdds).join(' | ');
+      const filteredPreds =
+        confidenceFilter === 'all'
+          ? m.predictions
+          : m.predictions.filter((p) => isPredictionMatchingConfidence(p.probability, confidenceFilter));
+      const activePreds = filteredPreds.length > 0 ? filteredPreds : m.predictions;
+
+      const events = activePreds.map((p) => p.event).join(' | ');
+      const tags = activePreds.map((p) => (p.isCombo ? '🔥 Комбо' : p.tag || 'Железобетон')).join(' | ');
+      const probs = activePreds.map((p) => `${p.probability}%`).join(' | ');
+      const odds = activePreds.map((p) => p.estimatedOdds).join(' | ');
       const stats = (m.keyStats || []).join('; ');
 
       rows.push(
@@ -459,12 +553,18 @@ ${items}
     if (!filteredMatches.length) return;
 
     const sportObj = SPORTS.find((s) => s.id === selectedSport);
+    const filterDesc =
+      confidenceFilter === 'all'
+        ? 'Все исходы (от 80%)'
+        : `Категория ${confidenceFilter}% (${confidenceFilter === 80 ? '80–84%' : confidenceFilter === 85 ? '85–89%' : '90%+'})`;
+
     const lines: string[] = [
       '═════════════════════════════════════════════════════════════════',
-      '          ПРОГНОЗЫ ОТ «БРАТА» (ЖЕЛЕЗОБЕТОН ≥ 80%)',
+      '          ПРОГНОЗЫ ОТ «БРАТА» (ЖЕЛЕЗОБЕТОН)',
       `  Дата событий: ${selectedDate}`,
       `  Вид спорта: ${sportObj?.name || 'Спорт'}`,
       `  Интервал времени: с ${startTime} до ${endTime}`,
+      `  Фильтр вероятности: ${filterDesc}`,
       `  Всего отобрано матчей: ${filteredMatches.length}`,
       '═════════════════════════════════════════════════════════════════\n',
     ];
@@ -477,8 +577,14 @@ ${items}
         lines.push(`\n🏆 [${league.toUpperCase()}]\n${'─'.repeat(60)}`);
       }
 
+      const filteredPreds =
+        confidenceFilter === 'all'
+          ? m.predictions
+          : m.predictions.filter((p) => isPredictionMatchingConfidence(p.probability, confidenceFilter));
+      const activePreds = filteredPreds.length > 0 ? filteredPreds : m.predictions;
+
       lines.push(`\n${idx + 1}. ${m.matchName} | Время: ${m.time}`);
-      m.predictions.forEach((p) => {
+      activePreds.forEach((p) => {
         lines.push(`   🎯 ${p.event} [Вероятность: ${p.probability}% | Кэф: ~${p.estimatedOdds}] (${p.isCombo ? '🔥 Комбо' : p.tag})`);
         if (p.comboItems && p.comboItems.length > 0) {
           lines.push(`      Состав комбо: ${p.comboItems.join(' + ')}`);
@@ -670,25 +776,32 @@ ${items}
                     <button
                       type="button"
                       onClick={() => {
-                        const d = new Date();
-                        const h = String(d.getHours()).padStart(2, '0');
-                        const m = String(d.getMinutes()).padStart(2, '0');
-                        setStartTime(`${h}:${m}`);
-                        setEndTime('23:59');
+                        setStartTime('00:00');
+                        setEndTime('12:00');
                       }}
-                      className="px-2 py-1 text-xs bg-[#040C20] hover:bg-[#0A1D4A] border border-blue-500/20 hover:border-blue-400/40 rounded-lg text-sky-300 transition-colors font-medium cursor-pointer shrink-0"
+                      className="px-2.5 py-1 text-xs bg-[#040C20] hover:bg-[#0A1D4A] border border-blue-500/20 hover:border-blue-400/40 rounded-lg text-sky-200 transition-colors font-medium cursor-pointer shrink-0"
                     >
-                      С текущего ({currentHours}:{currentMinutes})
+                      00:00–12:00
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setStartTime('12:00');
+                        setEndTime('18:00');
+                      }}
+                      className="px-2.5 py-1 text-xs bg-[#040C20] hover:bg-[#0A1D4A] border border-blue-500/20 hover:border-blue-400/40 rounded-lg text-sky-200 transition-colors font-medium cursor-pointer shrink-0"
+                    >
+                      12:00–18:00
                     </button>
                     <button
                       type="button"
                       onClick={() => {
                         setStartTime('18:00');
-                        setEndTime('23:30');
+                        setEndTime('23:59');
                       }}
-                      className="px-2 py-1 text-xs bg-[#040C20] hover:bg-[#0A1D4A] border border-blue-500/20 hover:border-blue-400/40 rounded-lg text-sky-200 transition-colors font-medium cursor-pointer shrink-0"
+                      className="px-2.5 py-1 text-xs bg-[#040C20] hover:bg-[#0A1D4A] border border-blue-500/20 hover:border-blue-400/40 rounded-lg text-sky-200 transition-colors font-medium cursor-pointer shrink-0"
                     >
-                      Вечер (18:00–23:30)
+                      Вечер (18:00–23:59)
                     </button>
                     <button
                       type="button"
@@ -696,9 +809,22 @@ ${items}
                         setStartTime('00:00');
                         setEndTime('23:59');
                       }}
-                      className="px-2 py-1 text-xs bg-[#040C20] hover:bg-[#0A1D4A] border border-blue-500/20 hover:border-blue-400/40 rounded-lg text-sky-200 transition-colors font-medium cursor-pointer shrink-0"
+                      className="px-2.5 py-1 text-xs bg-[#040C20] hover:bg-[#0A1D4A] border border-blue-500/20 hover:border-blue-400/40 rounded-lg text-sky-200 transition-colors font-medium cursor-pointer shrink-0"
                     >
                       Весь день
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const d = new Date();
+                        const h = String(d.getHours()).padStart(2, '0');
+                        const m = String(d.getMinutes()).padStart(2, '0');
+                        setStartTime(`${h}:${m}`);
+                        setEndTime('23:59');
+                      }}
+                      className="px-2 py-1 text-xs bg-[#040C20] hover:bg-[#0A1D4A] border border-blue-500/20 hover:border-blue-400/40 rounded-lg text-slate-400 hover:text-sky-300 transition-colors font-medium cursor-pointer shrink-0"
+                    >
+                      С текущего ({currentHours}:{currentMinutes})
                     </button>
                   </div>
                 </div>
@@ -727,7 +853,104 @@ ${items}
               </div>
             </div>
 
-            {/* 3. Custom Match Input */}
+            {/* 3. Match Depth & Volume Selector */}
+            <div className="space-y-2 pt-1">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold uppercase tracking-wider text-sky-200 flex items-center gap-1.5">
+                  <Layers className="w-3.5 h-3.5 text-sky-400" />
+                  <span>Количество изучаемых матчей (глубина линии)</span>
+                </label>
+                <span className="text-[10px] sm:text-[11px] text-sky-300 font-semibold px-2 py-0.5 rounded-md bg-blue-950/80 border border-blue-500/30">
+                  {matchDepth === 'max'
+                    ? '🚀 Максимум: Все матчи линии'
+                    : matchDepth === 'standard'
+                    ? '⭐ Максимум: Только известные матчи'
+                    : '🎯 Максимум: Малопопулярные матчи'}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setMatchDepth('max')}
+                  className={`p-3 rounded-xl sm:rounded-2xl border text-left transition-all duration-200 cursor-pointer relative overflow-hidden ${
+                    matchDepth === 'max'
+                      ? 'bg-gradient-to-b from-[#0c2254] to-[#061435] border-sky-400/80 shadow-[0_8px_24px_-4px_rgba(56,189,248,0.35)] text-white'
+                      : 'bg-[#030919]/80 border-blue-500/15 hover:border-blue-500/30 hover:bg-[#061333]/70 text-slate-300'
+                  }`}
+                >
+                  {matchDepth === 'max' && (
+                    <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-sky-400 to-transparent" />
+                  )}
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-bold text-xs sm:text-sm text-white flex items-center gap-1.5">
+                      <span className="text-base">🚀</span>
+                      <span>Максимальный</span>
+                    </span>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/30">
+                      Все матчи
+                    </span>
+                  </div>
+                  <p className="text-[10px] sm:text-[11px] text-slate-400 leading-snug">
+                    Полный максимум: аудит абсолютно всех матчей линии (топ, средние и смоллмаркеты)
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setMatchDepth('standard')}
+                  className={`p-3 rounded-xl sm:rounded-2xl border text-left transition-all duration-200 cursor-pointer relative overflow-hidden ${
+                    matchDepth === 'standard'
+                      ? 'bg-gradient-to-b from-[#0c2254] to-[#061435] border-sky-400/80 shadow-[0_8px_24px_-4px_rgba(56,189,248,0.35)] text-white'
+                      : 'bg-[#030919]/80 border-blue-500/15 hover:border-blue-500/30 hover:bg-[#061333]/70 text-slate-300'
+                  }`}
+                >
+                  {matchDepth === 'standard' && (
+                    <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-sky-400 to-transparent" />
+                  )}
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-bold text-xs sm:text-sm text-white flex items-center gap-1.5">
+                      <span className="text-base">⭐</span>
+                      <span>Стандартный</span>
+                    </span>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                      Только известные
+                    </span>
+                  </div>
+                  <p className="text-[10px] sm:text-[11px] text-slate-400 leading-snug">
+                    Максимум известных событий: аудит главных топовых чемпионатов и популярных лиг
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setMatchDepth('compact')}
+                  className={`p-3 rounded-xl sm:rounded-2xl border text-left transition-all duration-200 cursor-pointer relative overflow-hidden ${
+                    matchDepth === 'compact'
+                      ? 'bg-gradient-to-b from-[#0c2254] to-[#061435] border-sky-400/80 shadow-[0_8px_24px_-4px_rgba(56,189,248,0.35)] text-white'
+                      : 'bg-[#030919]/80 border-blue-500/15 hover:border-blue-500/30 hover:bg-[#061333]/70 text-slate-300'
+                  }`}
+                >
+                  {matchDepth === 'compact' && (
+                    <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-sky-400 to-transparent" />
+                  )}
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-bold text-xs sm:text-sm text-white flex items-center gap-1.5">
+                      <span className="text-base">🎯</span>
+                      <span>Компактный</span>
+                    </span>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-500/20 text-slate-300 border border-slate-500/30">
+                      Малопопулярные
+                    </span>
+                  </div>
+                  <p className="text-[10px] sm:text-[11px] text-slate-400 leading-snug">
+                    Максимум нишевых событий: аудит малопопулярных лиг, низших дивизионов и смоллмаркетов
+                  </p>
+                </button>
+              </div>
+            </div>
+
+            {/* 4. Custom Match Input */}
             <div className="space-y-2 pt-1">
               <div className="flex items-center justify-between flex-wrap gap-1.5">
                 <div className="flex items-center gap-2">
@@ -778,65 +1001,71 @@ ${items}
                     </span>
                   ) : (
                     <>
-                      Если поле пустое — ИИ проверит <span className="text-sky-300 font-medium">всю линию дня</span>. Если вписать матч — ИИ проанализирует <b>только его</b>.
+                      Если поле пустое — ИИ изучит максимум событий линии (режим:{' '}
+                      <span className="text-sky-300 font-medium">
+                        {matchDepth === 'max'
+                          ? 'все матчи линии'
+                          : matchDepth === 'standard'
+                          ? 'только известные матчи'
+                          : 'малопопулярные матчи'}
+                      </span>
+                      ). Если вписать матч — ИИ проанализирует <b>только его</b>.
                     </>
                   )}
                 </span>
               </p>
             </div>
 
-            {/* 4. BUTTON */}
+            {/* 5. ACTION BUTTON (WITH INTEGRATED LOADING & STOP-ON-CLICK) */}
             <div className="pt-2">
               <button
                 type="button"
-                disabled={loading || cooldown > 0}
-                onClick={handleAnalyze}
-                className={`w-full relative group overflow-hidden rounded-xl sm:rounded-2xl py-3.5 sm:py-5 px-4 sm:px-6 font-brand font-bold text-sm sm:text-lg tracking-wide uppercase transition-all duration-300 shadow-xl min-h-[50px] ${
-                  loading || cooldown > 0
-                    ? 'bg-[#061026] text-slate-400 cursor-not-allowed border border-blue-500/20'
+                disabled={!loading && cooldown > 0}
+                onClick={loading ? handleStopAnalyze : handleAnalyze}
+                className={`w-full relative overflow-hidden rounded-xl sm:rounded-2xl py-3.5 sm:py-5 px-4 sm:px-6 font-brand font-bold text-sm sm:text-lg tracking-wide uppercase transition-all duration-300 shadow-xl min-h-[54px] cursor-pointer ${
+                  loading
+                    ? 'bg-gradient-to-r from-blue-700 via-indigo-700 to-sky-700 text-white border border-sky-400/50 shadow-[0_12px_36px_rgba(37,99,235,0.4)] active:scale-[0.99]'
+                    : cooldown > 0
+                    ? 'bg-[#061026] text-slate-400 cursor-not-allowed border border-blue-500/20 shadow-none'
                     : customMatchesInput.trim()
-                    ? 'bg-gradient-to-r from-amber-600 via-orange-500 to-amber-600 bg-[length:200%_auto] hover:bg-right text-white shadow-[0_12px_36px_-6px_rgba(217,119,6,0.45)] hover:shadow-[0_16px_44px_-6px_rgba(217,119,6,0.65)] hover:-translate-y-0.5 active:translate-y-0 border border-amber-300/30 cursor-pointer'
-                    : 'bg-gradient-to-r from-blue-600 via-sky-500 to-blue-600 bg-[length:200%_auto] hover:bg-right text-white shadow-[0_12px_36px_-6px_rgba(37,99,235,0.45)] hover:shadow-[0_16px_44px_-6px_rgba(37,99,235,0.65)] hover:-translate-y-0.5 active:translate-y-0 border border-sky-300/30 cursor-pointer'
+                    ? 'bg-gradient-to-r from-amber-600 via-orange-500 to-amber-600 bg-[length:200%_auto] hover:bg-right text-white shadow-[0_12px_36px_-6px_rgba(217,119,6,0.45)] hover:shadow-[0_16px_44px_-6px_rgba(217,119,6,0.65)] hover:-translate-y-0.5 active:translate-y-0 border border-amber-300/30'
+                    : 'bg-gradient-to-r from-blue-600 via-sky-500 to-blue-600 bg-[length:200%_auto] hover:bg-right text-white shadow-[0_12px_36px_-6px_rgba(37,99,235,0.45)] hover:shadow-[0_16px_44px_-6px_rgba(37,99,235,0.65)] hover:-translate-y-0.5 active:translate-y-0 border border-sky-300/30'
                 }`}
               >
-                <div className="flex items-center justify-center gap-2.5 sm:gap-3">
-                  {loading ? (
-                    <>
-                      <div className="w-5 h-5 border-2 border-sky-400 border-t-transparent rounded-full animate-spin shrink-0" />
-                      <span className="tracking-wider text-xs sm:text-base font-sans truncate">
-                        {customMatchesInput.trim()
-                          ? `Анализ матча «${customMatchesInput.trim().slice(0, 20)}»...`
-                          : 'Идет поиск сетки и аудит...'}
-                      </span>
-                    </>
-                  ) : cooldown > 0 ? (
-                    <>
-                      <Clock className="w-5 h-5 text-amber-400 animate-pulse shrink-0" />
-                      <span className="tracking-wide text-amber-300 text-xs sm:text-base font-sans">
-                        Ожидание лимита API ({cooldown} сек)
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <Zap className="w-4 h-4 sm:w-5 sm:h-5 fill-white text-white shrink-0" />
-                      <span className="truncate">
-                        {customMatchesInput.trim()
-                          ? `АНАЛИЗ: ${customMatchesInput.trim().slice(0, 24)}${customMatchesInput.trim().length > 24 ? '...' : ''}`
-                          : 'ПОЛУЧИТЬ АНАЛИЗ И ПРОГНОЗ'}
-                      </span>
-                      <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 ml-1 transition-transform group-hover:translate-x-1 shrink-0 hidden xs:inline" />
-                    </>
-                  )}
-                </div>
+                {loading ? (
+                  <div className="flex items-center justify-center gap-2.5 sm:gap-3">
+                    <div className="w-5 h-5 border-2 border-white/90 border-t-transparent rounded-full animate-spin shrink-0" />
+                    <span className="truncate tracking-wide">
+                      Идет анализ...
+                    </span>
+                  </div>
+                ) : cooldown > 0 ? (
+                  <div className="flex items-center justify-center gap-2.5 sm:gap-3">
+                    <Clock className="w-5 h-5 text-amber-400 animate-pulse shrink-0" />
+                    <span className="tracking-wide text-amber-300 text-xs sm:text-base font-sans">
+                      Ожидание лимита API ({cooldown} сек)
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center gap-2.5 sm:gap-3">
+                    <Zap className="w-4 h-4 sm:w-5 sm:h-5 fill-white text-white shrink-0" />
+                    <span className="truncate">
+                      {customMatchesInput.trim()
+                        ? `АНАЛИЗ: ${customMatchesInput.trim().slice(0, 24)}${customMatchesInput.trim().length > 24 ? '...' : ''}`
+                        : `ПОЛУЧИТЬ АНАЛИЗ И ПРОГНОЗ (${matchDepth === 'max' ? 'ВСЕ МАТЧИ' : matchDepth === 'standard' ? 'ТОЛЬКО ИЗВЕСТНЫЕ МАТЧИ' : 'МАЛОПОПУЛЯРНЫЕ МАТЧИ'})`}
+                    </span>
+                    <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 ml-1 transition-transform group-hover:translate-x-1 shrink-0 hidden xs:inline" />
+                  </div>
+                )}
               </button>
             </div>
 
           </div>
         </section>
 
-        {/* LOADING STAGES */}
+        {/* LOADING STAGES PANEL */}
         {loading && (
-          <section className="sapphire-panel rounded-3xl p-6 sm:p-8 space-y-6 animate-fadeIn">
+          <section className="sapphire-panel rounded-3xl p-5 sm:p-8 space-y-5 sm:space-y-6 animate-fadeIn">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-blue-500/20 pb-5">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
@@ -845,9 +1074,15 @@ ${items}
                     Аудит официальной сетки в процессе
                   </span>
                 </div>
-                <h3 className="text-lg font-bold text-white">
-                  Прочесываем расписание событий ({startTime} – {endTime})
+                <h3 className="text-base sm:text-lg font-bold text-white">
+                  Прочесываем расписание событий ({startTime} – {endTime}) • {matchDepth === 'max' ? 'все матчи (максимум)' : matchDepth === 'standard' ? 'только известные матчи (максимум)' : 'малопопулярные матчи (максимум)'}
                 </h3>
+              </div>
+
+              {/* Progress counter badge instead of separate stop button */}
+              <div className="self-start sm:self-center px-3.5 py-1.5 rounded-xl bg-sky-950/70 border border-sky-400/30 text-sky-300 font-semibold text-xs flex items-center gap-2 shrink-0">
+                <span className="w-2 h-2 rounded-full bg-sky-400 animate-pulse" />
+                <span>Этап {loadingStage + 1} из {analysisSteps.length}</span>
               </div>
             </div>
 
@@ -882,6 +1117,31 @@ ${items}
               })}
             </div>
           </section>
+        )}
+
+        {/* User Stopped / Cancelled Banner */}
+        {stopNotice && (
+          <div className="rounded-2xl bg-amber-950/40 border border-amber-500/40 p-4 sm:p-5 text-sm text-amber-200 flex items-start justify-between gap-3 backdrop-blur-md animate-fadeIn shadow-xl">
+            <div className="flex items-start gap-3">
+              <span className="text-xl shrink-0">⏸️</span>
+              <div className="space-y-1">
+                <div className="font-bold text-white text-sm sm:text-base leading-snug">
+                  Анализ остановлен
+                </div>
+                <p className="text-xs sm:text-sm text-slate-300">
+                  {stopNotice} Вы можете изменить параметры или запустить расчет повторно.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setStopNotice(null)}
+              className="text-slate-400 hover:text-white p-1 cursor-pointer shrink-0 transition-colors"
+              title="Закрыть уведомление"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         )}
 
         {/* Error notification banner */}
@@ -983,7 +1243,7 @@ ${items}
         )}
 
         {/* RESULTS SECTION: Summary & Required Table */}
-        {!loading && data && filteredMatches.length > 0 && (
+        {!loading && data && data.matches && data.matches.length > 0 && (
           <div className="space-y-6 animate-fadeIn">
             
             {/* Aesthetic Summary Card */}
@@ -1068,7 +1328,15 @@ ${items}
                   <div className="text-xl sm:text-2xl font-brand font-bold text-sky-400 mt-0.5 sm:mt-1 font-mono-data">
                     {filteredMatches.length}
                   </div>
-                  <div className="text-[9px] sm:text-[10px] text-sky-400/80 mt-0.5">Строго ≥ {confidenceFilter}%</div>
+                  <div className="text-[9px] sm:text-[10px] text-sky-400/80 mt-0.5">
+                    {confidenceFilter === 'all'
+                      ? 'Все исходы (от 80%)'
+                      : confidenceFilter === 80
+                      ? 'Только 80% (80–84%)'
+                      : confidenceFilter === 85
+                      ? 'Только 85% (85–89%)'
+                      : 'Только 90%+'}
+                  </div>
                 </div>
 
                 <div className="sapphire-inner-card p-3 sm:p-4 rounded-xl sm:rounded-2xl text-center">

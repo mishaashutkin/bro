@@ -5,6 +5,8 @@
  * 2. LiveScore public API (global matches for soccer, hockey, basketball, tennis)
  */
 
+import { translateTeamNameToRussian, translateMatchNameToRussian } from './russian-names';
+
 export interface RealMatchItem {
   id: string;
   matchName: string;
@@ -142,7 +144,8 @@ async function fetchFromMarathon(sportKey: string, targetDateStr: string): Promi
 
   for (const cfg of sportsToFetch) {
     try {
-      const url = `https://www.marathonbet.ru/su/popular/${encodeURIComponent(cfg.name)}+-+${cfg.id}?period=TODAY`;
+      const periodParam = isTargetToday ? '?period=TODAY' : '?period=24HR';
+      const url = `https://www.marathonbet.ru/su/popular/${encodeURIComponent(cfg.name)}+-+${cfg.id}${periodParam}`;
       const res = await fetch(url, {
         headers: {
           'User-Agent':
@@ -206,9 +209,12 @@ async function fetchFromMarathon(sportKey: string, targetDateStr: string): Promi
         }
 
         const parts = rawName.split(/\s*-\s*|\s+vs\.?\s+/i);
-        const homeTeam = (teamNames[0] || parts[0] || '').trim();
-        const awayTeam = (teamNames[1] || parts[1] || '').trim();
-        if (!homeTeam || !awayTeam) continue;
+        const rawHome = (teamNames[0] || parts[0] || '').trim();
+        const rawAway = (teamNames[1] || parts[1] || '').trim();
+        if (!rawHome || !rawAway) continue;
+
+        const homeTeam = translateTeamNameToRussian(rawHome);
+        const awayTeam = translateTeamNameToRussian(rawAway);
 
         const pathSegments = path.split('/');
         let league = pathSegments.slice(2, -1).join(' • ') || pathSegments[1] || cfg.name;
@@ -271,9 +277,9 @@ async function fetchFromLiveScore(sportKey: string, dateStr: string): Promise<Re
       for (const stage of data.Stages || []) {
         const league = `${stage.Cnm || ''} • ${stage.Snm || ''}`.trim().replace(/^•\s*|\s*•$/g, '');
         for (const ev of stage.Events || []) {
-          const homeTeam = ev.T1?.[0]?.Nm?.trim();
-          const awayTeam = ev.T2?.[0]?.Nm?.trim();
-          if (!homeTeam || !awayTeam) continue;
+          const rawHome = ev.T1?.[0]?.Nm?.trim();
+          const rawAway = ev.T2?.[0]?.Nm?.trim();
+          if (!rawHome || !rawAway) continue;
 
           // Strictly verify event start date
           if (!ev.Esd || String(ev.Esd).length < 12) continue;
@@ -285,6 +291,8 @@ async function fetchFromLiveScore(sportKey: string, dateStr: string): Promise<Re
           }
 
           const time = `${esdStr.slice(8, 10)}:${esdStr.slice(10, 12)}`;
+          const homeTeam = translateTeamNameToRussian(rawHome);
+          const awayTeam = translateTeamNameToRussian(rawAway);
 
           list.push({
             id: `ls-${ev.Eid || list.length + 1}`,
@@ -322,7 +330,8 @@ export async function getRealMatchesForDay(
   dateStr: string,
   startTime?: string,
   endTime?: string,
-  customQuery?: string
+  customQuery?: string,
+  matchDepth: 'max' | 'standard' | 'compact' = 'max'
 ): Promise<RealMatchItem[]> {
   let results: RealMatchItem[] = [];
   const seenMatches = new Set<string>();
@@ -387,9 +396,26 @@ export async function getRealMatchesForDay(
     console.log(`Filtered to ${results.length} matches in time range ${startTime || '00:00'} - ${endTime || '23:59'}`);
   }
 
-  // 5. Sort by tournament tier (top-tier leagues first: Tier 1 -> Tier 2 -> Tier 3)
-  results.sort((a, b) => (a.tier || 3) - (b.tier || 3));
+  // 5. Filter and prioritize based on depth option:
+  // Максимальный = все матчи (по максимуму)
+  // Стандартный = только известные матчи (по максимуму)
+  // Компактный = малопопулярные матчи (по максимуму)
+  if (matchDepth === 'standard') {
+    const known = results.filter((m) => (m.tier || 3) <= 2);
+    if (known.length > 0) {
+      results = known;
+    }
+    results.sort((a, b) => (a.tier || 3) - (b.tier || 3));
+  } else if (matchDepth === 'compact') {
+    const niche = results.filter((m) => (m.tier || 3) >= 3);
+    if (niche.length > 0) {
+      results = niche;
+    }
+  } else {
+    // max: all matches
+    results.sort((a, b) => (a.tier || 3) - (b.tier || 3));
+  }
 
-  // Cap at up to 500 events
-  return results.slice(0, 500);
+  // Cap at up to 1000 events
+  return results.slice(0, 1000);
 }
