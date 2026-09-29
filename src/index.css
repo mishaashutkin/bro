@@ -13,6 +13,24 @@
     background-color: #02050E;
     color: #e2e8f0;
     overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  button, input, select {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
 
   h1, h2, h3, .font-heading {

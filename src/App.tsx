@@ -21,6 +21,8 @@ import {
   Trophy,
   Download,
   FileText,
+  LayoutGrid,
+  List,
 } from 'lucide-react';
 
 interface MatchPrediction {
@@ -189,6 +191,7 @@ export default function App() {
   const [confidenceFilter, setConfidenceFilter] = useState<number>(80);
   const [selectedLeague, setSelectedLeague] = useState<string>('all');
   const [tableSearchQuery, setTableSearchQuery] = useState<string>('');
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
   const [expandedReasoning, setExpandedReasoning] = useState<Record<string, boolean>>({});
   const [cooldown, setCooldown] = useState<number>(0);
 
@@ -528,79 +531,78 @@ ${items}
 
       {/* Header */}
       <header className="border-b border-blue-500/15 bg-[#030818]/90 backdrop-blur-2xl sticky top-0 z-40 relative">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center space-x-3.5">
+        <div className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between">
+          <div className="flex items-center space-x-3">
             <div className="relative group">
               <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-600 to-sky-500 rounded-xl blur opacity-30 group-hover:opacity-60 transition duration-300" />
-              <div className="relative w-10 h-10 rounded-xl bg-[#030919] border border-blue-500/30 flex items-center justify-center shadow-lg shadow-blue-950/50">
-                <ShieldCheck className="w-5 h-5 text-blue-400" />
+              <div className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#030919] border border-blue-500/30 flex items-center justify-center shadow-lg shadow-blue-950/50">
+                <ShieldCheck className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
               </div>
             </div>
-            <div>
-              <div className="flex items-center gap-2.5">
-                <span className="font-brand font-black text-2xl tracking-tight text-white drop-shadow-[0_2px_8px_rgba(59,130,246,0.3)]">
-                  БРАТ
-                </span>
-                <span className="text-[10px] font-semibold tracking-wider uppercase px-2.5 py-0.5 rounded-full bg-blue-950/80 border border-blue-500/30 text-sky-300">
-                  Спортивный интеллект
-                </span>
-              </div>
+            <div className="flex items-center gap-2">
+              <span className="font-brand font-black text-xl sm:text-2xl tracking-tight text-white drop-shadow-[0_2px_8px_rgba(59,130,246,0.3)]">
+                БРАТ
+              </span>
+              <span className="text-[9px] sm:text-[10px] font-semibold tracking-wider uppercase px-2 py-0.5 rounded-full bg-blue-950/80 border border-blue-500/30 text-sky-300">
+                Спортивный ИИ
+              </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 text-xs">
-            <div className="hidden sm:flex items-center gap-2 text-slate-400 text-xs">
+          <div className="flex items-center gap-2 text-xs">
+            <div className="flex items-center gap-1.5 text-slate-300 text-xs">
               <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse shadow-[0_0_8px_#38bdf8]" />
-              <span className="text-slate-300 font-medium">Аудит официальной сетки</span>
-              <span className="text-blue-900">|</span>
-              <span className="text-sky-300 font-mono-data font-semibold">Строго ≥ 80%</span>
+              <span className="text-slate-300 font-medium text-[11px] sm:text-xs hidden xs:inline">Аудит сетки БК</span>
+              <span className="text-blue-900 hidden xs:inline">|</span>
+              <span className="text-sky-300 font-mono-data font-semibold text-[11px] sm:text-xs">≥ 80%</span>
             </div>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 space-y-8 relative z-10">
+      <main className="flex-1 max-w-7xl mx-auto w-full px-3 sm:px-6 lg:px-8 py-5 sm:py-8 space-y-6 sm:space-y-8 relative z-10">
         
         {/* CONTROL PANEL */}
-        <section className="sapphire-panel rounded-3xl p-6 sm:p-8 space-y-6">
-          <div className="space-y-6">
+        <section className="sapphire-panel rounded-2xl sm:rounded-3xl p-4 sm:p-8 space-y-5 sm:space-y-6">
+          <div className="space-y-5 sm:space-y-6">
             
             {/* 1. Sport Selector */}
-            <div className="space-y-2.5">
+            <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-bold uppercase tracking-wider text-sky-200 flex items-center gap-2">
+                <label className="text-xs font-bold uppercase tracking-wider text-sky-200 flex items-center gap-1.5">
                   <Flame className="w-3.5 h-3.5 text-sky-400" />
                   <span>Вид спорта</span>
                 </label>
-                <span className="text-[11px] text-slate-400">Выберите дисциплину</span>
+                <span className="text-[10px] sm:text-[11px] text-slate-400">Выберите дисциплину</span>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-2.5">
                 {SPORTS.map((sport) => {
                   const isSelected = selectedSport === sport.id;
+                  const isEsports = sport.id === 'esports';
                   return (
                     <button
                       key={sport.id}
                       type="button"
                       onClick={() => setSelectedSport(sport.id)}
-                      className={`relative text-left p-4 rounded-2xl border transition-all duration-200 cursor-pointer overflow-hidden ${
+                      className={`relative text-left p-3 sm:p-4 rounded-xl sm:rounded-2xl border transition-all duration-200 cursor-pointer overflow-hidden ${
                         isSelected
                           ? 'bg-gradient-to-b from-[#0c1f4a] to-[#06122d] border-blue-400/70 shadow-[0_12px_28px_-6px_rgba(37,99,235,0.35)] text-white'
                           : 'bg-[#030919]/80 border-blue-500/10 hover:border-blue-500/30 hover:bg-[#061333]/70 text-slate-300'
-                      }`}
+                      } ${isEsports ? 'col-span-2 sm:col-span-1' : ''}`}
                     >
                       {isSelected && (
                         <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-sky-400 to-transparent" />
                       )}
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-2xl filter drop-shadow">{sport.icon}</span>
+                      <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+                        <span className="text-xl sm:text-2xl filter drop-shadow">{sport.icon}</span>
                         {isSelected && (
                           <div className="w-2 h-2 rounded-full bg-sky-400 shadow-[0_0_10px_#38bdf8]" />
                         )}
                       </div>
-                      <div className="font-bold text-sm text-white tracking-tight">{sport.name}</div>
-                      <div className="text-[11px] text-slate-400 truncate mt-0.5">{sport.desc}</div>
+                      <div className="font-bold text-xs sm:text-sm text-white tracking-tight">{sport.name}</div>
+                      <div className="text-[10px] sm:text-[11px] text-slate-400 truncate mt-0.5">{sport.desc}</div>
                     </button>
                   );
                 })}
@@ -608,34 +610,34 @@ ${items}
             </div>
 
             {/* 2. Date and Time Range Controls */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 pt-1">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 pt-1">
               
               {/* Date selection (5 columns) */}
-              <div className="lg:col-span-5 space-y-2.5">
-                <div className="flex items-center justify-between">
+              <div className="lg:col-span-5 space-y-2">
+                <div className="flex flex-col xs:flex-row xs:items-center justify-between gap-1.5">
                   <label className="text-xs font-bold uppercase tracking-wider text-sky-200 flex items-center gap-1.5">
                     <Calendar className="w-3.5 h-3.5 text-sky-400" />
                     <span>Дата матчей</span>
                   </label>
-                  <div className="flex gap-1.5">
+                  <div className="flex gap-1.5 overflow-x-auto no-scrollbar py-0.5">
                     <button
                       type="button"
                       onClick={() => setQuickDate(0)}
-                      className="px-2.5 py-1 text-[11px] bg-[#040C20] hover:bg-[#0A1D4A] border border-blue-500/20 hover:border-blue-400/40 rounded-lg text-sky-200 transition-colors font-medium cursor-pointer"
+                      className="px-2.5 py-1 text-xs bg-[#040C20] hover:bg-[#0A1D4A] border border-blue-500/20 hover:border-blue-400/40 rounded-lg text-sky-200 transition-colors font-medium cursor-pointer shrink-0"
                     >
                       Сегодня
                     </button>
                     <button
                       type="button"
                       onClick={() => setQuickDate(1)}
-                      className="px-2.5 py-1 text-[11px] bg-[#040C20] hover:bg-[#0A1D4A] border border-blue-500/20 hover:border-blue-400/40 rounded-lg text-sky-200 transition-colors font-medium cursor-pointer"
+                      className="px-2.5 py-1 text-xs bg-[#040C20] hover:bg-[#0A1D4A] border border-blue-500/20 hover:border-blue-400/40 rounded-lg text-sky-200 transition-colors font-medium cursor-pointer shrink-0"
                     >
                       Завтра
                     </button>
                     <button
                       type="button"
                       onClick={() => setQuickDate(2)}
-                      className="px-2.5 py-1 text-[11px] bg-[#040C20] hover:bg-[#0A1D4A] border border-blue-500/20 hover:border-blue-400/40 rounded-lg text-sky-200 transition-colors font-medium cursor-pointer"
+                      className="px-2.5 py-1 text-xs bg-[#040C20] hover:bg-[#0A1D4A] border border-blue-500/20 hover:border-blue-400/40 rounded-lg text-sky-200 transition-colors font-medium cursor-pointer shrink-0"
                     >
                       Послезавтра
                     </button>
@@ -653,18 +655,18 @@ ${items}
                       setEndTime('23:59');
                     }
                   }}
-                  className="w-full bg-[#030919] border border-blue-500/20 hover:border-blue-400/40 focus:border-sky-400 rounded-xl px-4 py-3 text-white text-sm font-semibold outline-none transition-all shadow-inner"
+                  className="w-full bg-[#030919] border border-blue-500/20 hover:border-blue-400/40 focus:border-sky-400 rounded-xl px-3.5 sm:px-4 py-2.5 sm:py-3 text-white text-base sm:text-sm font-semibold outline-none transition-all shadow-inner"
                 />
               </div>
 
               {/* Time Range selection (7 columns) */}
-              <div className="lg:col-span-7 space-y-2.5">
-                <div className="flex items-center justify-between">
+              <div className="lg:col-span-7 space-y-2">
+                <div className="flex flex-col xs:flex-row xs:items-center justify-between gap-1.5">
                   <label className="text-xs font-bold uppercase tracking-wider text-sky-200 flex items-center gap-1.5">
                     <Clock className="w-3.5 h-3.5 text-sky-400" />
-                    <span>Диапазон времени событий</span>
+                    <span>Интервал времени событий</span>
                   </label>
-                  <div className="flex gap-1.5">
+                  <div className="flex gap-1.5 overflow-x-auto no-scrollbar py-0.5">
                     <button
                       type="button"
                       onClick={() => {
@@ -674,7 +676,7 @@ ${items}
                         setStartTime(`${h}:${m}`);
                         setEndTime('23:59');
                       }}
-                      className="px-2 py-1 text-[11px] bg-[#040C20] hover:bg-[#0A1D4A] border border-blue-500/20 hover:border-blue-400/40 rounded-lg text-sky-300 transition-colors font-medium cursor-pointer"
+                      className="px-2 py-1 text-xs bg-[#040C20] hover:bg-[#0A1D4A] border border-blue-500/20 hover:border-blue-400/40 rounded-lg text-sky-300 transition-colors font-medium cursor-pointer shrink-0"
                     >
                       С текущего ({currentHours}:{currentMinutes})
                     </button>
@@ -684,7 +686,7 @@ ${items}
                         setStartTime('18:00');
                         setEndTime('23:30');
                       }}
-                      className="px-2 py-1 text-[11px] bg-[#040C20] hover:bg-[#0A1D4A] border border-blue-500/20 hover:border-blue-400/40 rounded-lg text-sky-200 transition-colors font-medium cursor-pointer"
+                      className="px-2 py-1 text-xs bg-[#040C20] hover:bg-[#0A1D4A] border border-blue-500/20 hover:border-blue-400/40 rounded-lg text-sky-200 transition-colors font-medium cursor-pointer shrink-0"
                     >
                       Вечер (18:00–23:30)
                     </button>
@@ -694,31 +696,31 @@ ${items}
                         setStartTime('00:00');
                         setEndTime('23:59');
                       }}
-                      className="px-2 py-1 text-[11px] bg-[#040C20] hover:bg-[#0A1D4A] border border-blue-500/20 hover:border-blue-400/40 rounded-lg text-sky-200 transition-colors font-medium cursor-pointer"
+                      className="px-2 py-1 text-xs bg-[#040C20] hover:bg-[#0A1D4A] border border-blue-500/20 hover:border-blue-400/40 rounded-lg text-sky-200 transition-colors font-medium cursor-pointer shrink-0"
                     >
                       Весь день
                     </button>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
                   <div className="space-y-1">
-                    <span className="text-[11px] text-slate-400">Начало от:</span>
+                    <span className="text-[10px] sm:text-[11px] text-slate-400">Начало от:</span>
                     <input
                       type="time"
                       value={startTime}
                       onChange={(e) => setStartTime(e.target.value)}
-                      className="w-full bg-[#030919] border border-blue-500/20 hover:border-blue-400/40 focus:border-sky-400 rounded-xl px-4 py-3 text-white text-sm font-semibold outline-none transition-all shadow-inner font-mono-data"
+                      className="w-full bg-[#030919] border border-blue-500/20 hover:border-blue-400/40 focus:border-sky-400 rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-white text-base sm:text-sm font-semibold outline-none transition-all shadow-inner font-mono-data"
                     />
                   </div>
 
                   <div className="space-y-1">
-                    <span className="text-[11px] text-slate-400">Окончание до:</span>
+                    <span className="text-[10px] sm:text-[11px] text-slate-400">Окончание до:</span>
                     <input
                       type="time"
                       value={endTime}
                       onChange={(e) => setEndTime(e.target.value)}
-                      className="w-full bg-[#030919] border border-blue-500/20 hover:border-blue-400/40 focus:border-sky-400 rounded-xl px-4 py-3 text-white text-sm font-semibold outline-none transition-all shadow-inner font-mono-data"
+                      className="w-full bg-[#030919] border border-blue-500/20 hover:border-blue-400/40 focus:border-sky-400 rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-white text-base sm:text-sm font-semibold outline-none transition-all shadow-inner font-mono-data"
                     />
                   </div>
                 </div>
@@ -726,8 +728,8 @@ ${items}
             </div>
 
             {/* 3. Custom Match Input */}
-            <div className="space-y-2.5 pt-1">
-              <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="space-y-2 pt-1">
+              <div className="flex items-center justify-between flex-wrap gap-1.5">
                 <div className="flex items-center gap-2">
                   <label className="text-xs font-bold uppercase tracking-wider text-sky-200 flex items-center gap-1.5">
                     <Target className="w-3.5 h-3.5 text-sky-400" />
@@ -735,7 +737,7 @@ ${items}
                   </label>
                   {customMatchesInput.trim() && (
                     <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse">
-                      Режим: строго вписанные
+                      Точечный
                     </span>
                   )}
                 </div>
@@ -743,7 +745,7 @@ ${items}
                   <button
                     type="button"
                     onClick={() => setCustomMatchesInput('')}
-                    className="text-[11px] text-slate-400 hover:text-white flex items-center gap-1 cursor-pointer"
+                    className="text-[11px] text-slate-400 hover:text-white flex items-center gap-1 cursor-pointer py-0.5"
                   >
                     <X className="w-3 h-3" />
                     <span>Очистить</span>
@@ -759,20 +761,20 @@ ${items}
                   type="text"
                   value={customMatchesInput}
                   onChange={(e) => setCustomMatchesInput(e.target.value)}
-                  placeholder="Впишите конкретный матч или команды (например: «Спартак - Динамо», «Реал - Барселона», «Ливерпуль»)..."
-                  className={`w-full bg-[#030919] border rounded-xl pl-10 pr-4 py-3.5 text-white text-sm outline-none transition-all placeholder:text-slate-500 shadow-inner ${
+                  placeholder="Впишите конкретный матч или команды (например: «Спартак - Динамо», «Реал»)..."
+                  className={`w-full bg-[#030919] border rounded-xl pl-10 pr-4 py-3 sm:py-3.5 text-white text-base sm:text-sm outline-none transition-all placeholder:text-slate-500 shadow-inner ${
                     customMatchesInput.trim()
                       ? 'border-amber-400/50 focus:border-amber-400 ring-1 ring-amber-400/20'
                       : 'border-blue-500/20 hover:border-blue-400/40 focus:border-sky-400'
                   }`}
                 />
               </div>
-              <p className="text-[11px] text-slate-400 leading-normal flex items-start gap-1.5">
+              <p className="text-[10px] sm:text-[11px] text-slate-400 leading-normal flex items-start gap-1.5">
                 <span className="text-sky-400 font-bold shrink-0">🎯</span>
                 <span>
                   {customMatchesInput.trim() ? (
                     <span className="text-amber-300 font-medium">
-                      Включен строгий режим: ИИ проанализирует <b>ИСКЛЮЧИТЕЛЬНО</b> указанные вами матчи. Любые другие матчи дня будут отфильтрованы.
+                      Включен строгий режим: ИИ проанализирует <b>ИСКЛЮЧИТЕЛЬНО</b> указанные вами матчи.
                     </span>
                   ) : (
                     <>
@@ -789,7 +791,7 @@ ${items}
                 type="button"
                 disabled={loading || cooldown > 0}
                 onClick={handleAnalyze}
-                className={`w-full relative group overflow-hidden rounded-2xl py-4 sm:py-5 px-6 font-brand font-bold text-base sm:text-lg tracking-wide uppercase transition-all duration-300 shadow-xl ${
+                className={`w-full relative group overflow-hidden rounded-xl sm:rounded-2xl py-3.5 sm:py-5 px-4 sm:px-6 font-brand font-bold text-sm sm:text-lg tracking-wide uppercase transition-all duration-300 shadow-xl min-h-[50px] ${
                   loading || cooldown > 0
                     ? 'bg-[#061026] text-slate-400 cursor-not-allowed border border-blue-500/20'
                     : customMatchesInput.trim()
@@ -797,32 +799,32 @@ ${items}
                     : 'bg-gradient-to-r from-blue-600 via-sky-500 to-blue-600 bg-[length:200%_auto] hover:bg-right text-white shadow-[0_12px_36px_-6px_rgba(37,99,235,0.45)] hover:shadow-[0_16px_44px_-6px_rgba(37,99,235,0.65)] hover:-translate-y-0.5 active:translate-y-0 border border-sky-300/30 cursor-pointer'
                 }`}
               >
-                <div className="flex items-center justify-center gap-3">
+                <div className="flex items-center justify-center gap-2.5 sm:gap-3">
                   {loading ? (
                     <>
-                      <div className="w-5 h-5 border-2 border-sky-400 border-t-transparent rounded-full animate-spin" />
-                      <span className="tracking-wider text-sm sm:text-base font-sans">
+                      <div className="w-5 h-5 border-2 border-sky-400 border-t-transparent rounded-full animate-spin shrink-0" />
+                      <span className="tracking-wider text-xs sm:text-base font-sans truncate">
                         {customMatchesInput.trim()
-                          ? `Анализ матча «${customMatchesInput.trim().slice(0, 25)}»...`
-                          : 'Идет поиск официальной сетки и аудит...'}
+                          ? `Анализ матча «${customMatchesInput.trim().slice(0, 20)}»...`
+                          : 'Идет поиск сетки и аудит...'}
                       </span>
                     </>
                   ) : cooldown > 0 ? (
                     <>
-                      <Clock className="w-5 h-5 text-amber-400 animate-pulse" />
-                      <span className="tracking-wide text-amber-300 text-sm sm:text-base font-sans">
-                        Ожидание лимита Google API ({cooldown} сек)
+                      <Clock className="w-5 h-5 text-amber-400 animate-pulse shrink-0" />
+                      <span className="tracking-wide text-amber-300 text-xs sm:text-base font-sans">
+                        Ожидание лимита API ({cooldown} сек)
                       </span>
                     </>
                   ) : (
                     <>
-                      <Zap className="w-5 h-5 fill-white text-white" />
-                      <span>
+                      <Zap className="w-4 h-4 sm:w-5 sm:h-5 fill-white text-white shrink-0" />
+                      <span className="truncate">
                         {customMatchesInput.trim()
-                          ? `ПРОАНАЛИЗИРОВАТЬ ТОЛЬКО: ${customMatchesInput.trim().slice(0, 28)}${customMatchesInput.trim().length > 28 ? '...' : ''}`
+                          ? `АНАЛИЗ: ${customMatchesInput.trim().slice(0, 24)}${customMatchesInput.trim().length > 24 ? '...' : ''}`
                           : 'ПОЛУЧИТЬ АНАЛИЗ И ПРОГНОЗ'}
                       </span>
-                      <ArrowRight className="w-5 h-5 ml-1 transition-transform group-hover:translate-x-1" />
+                      <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 ml-1 transition-transform group-hover:translate-x-1 shrink-0 hidden xs:inline" />
                     </>
                   )}
                 </div>
@@ -985,52 +987,53 @@ ${items}
           <div className="space-y-6 animate-fadeIn">
             
             {/* Aesthetic Summary Card */}
-            <div className="sapphire-panel rounded-3xl p-6 sm:p-8 space-y-6">
+            <div className="sapphire-panel rounded-2xl sm:rounded-3xl p-4 sm:p-8 space-y-4 sm:space-y-6">
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-blue-500/20 pb-4">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sky-400 font-bold text-xs uppercase tracking-wider">
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap text-xs">
+                    <span className="text-sky-400 font-bold uppercase tracking-wider text-[11px] sm:text-xs">
                       Резюме анализа
                     </span>
-                    <span className="text-xs px-2.5 py-0.5 rounded-full bg-blue-950/70 border border-blue-500/40 text-sky-200 font-mono-data flex items-center gap-1.5">
-                      <Calendar className="w-3.5 h-3.5 text-sky-400" />
+                    <span className="text-[11px] sm:text-xs px-2.5 py-0.5 rounded-full bg-blue-950/70 border border-blue-500/40 text-sky-200 font-mono-data flex items-center gap-1">
+                      <Calendar className="w-3 h-3 text-sky-400" />
                       <span>{data.brotherSummary.date}</span>
                     </span>
-                    <span className="text-xs px-2.5 py-0.5 rounded-full bg-blue-950/70 border border-blue-600/30 text-sky-200 font-mono-data flex items-center gap-1.5">
-                      <Clock className="w-3.5 h-3.5 text-sky-400" />
+                    <span className="text-[11px] sm:text-xs px-2.5 py-0.5 rounded-full bg-blue-950/70 border border-blue-600/30 text-sky-200 font-mono-data flex items-center gap-1">
+                      <Clock className="w-3 h-3 text-sky-400" />
                       <span>{data.brotherSummary.timeRange}</span>
                     </span>
-                    <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-950/70 border border-emerald-500/40 text-emerald-300 font-medium flex items-center gap-1">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>{data.brotherSummary.lineSource || 'Линия БК проверена'}</span>
+                    <span className="text-[11px] sm:text-xs px-2.5 py-0.5 rounded-full bg-emerald-950/70 border border-emerald-500/40 text-emerald-300 font-medium flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                      <span>{data.brotherSummary.lineSource || 'Линия БК'}</span>
                     </span>
                     {data.brotherSummary.userFilterQuery && (
-                      <span className="text-xs px-2.5 py-0.5 rounded-full bg-amber-950/70 border border-amber-500/40 text-amber-300 font-medium flex items-center gap-1">
+                      <span className="text-[11px] sm:text-xs px-2.5 py-0.5 rounded-full bg-amber-950/70 border border-amber-500/40 text-amber-300 font-medium flex items-center gap-1">
                         <span>🎯</span>
-                        <span>Только матч: «{data.brotherSummary.userFilterQuery}»</span>
+                        <span>Матч: «{data.brotherSummary.userFilterQuery}»</span>
                       </span>
                     )}
                   </div>
-                  <h2 className="text-lg sm:text-xl font-brand font-bold text-white">
+                  <h2 className="text-base sm:text-xl font-brand font-bold text-white leading-tight">
                     {data.brotherSummary.greeting}
                   </h2>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2.5">
+                {/* Mobile-adaptive Action Buttons */}
+                <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 sm:gap-2.5 w-full lg:w-auto">
                   <button
                     type="button"
                     onClick={downloadTableCsv}
-                    className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-emerald-600/20 cursor-pointer active:scale-95"
-                    title="Скачать всю таблицу в формате Excel (CSV)"
+                    className="flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-emerald-600/20 cursor-pointer active:scale-95"
+                    title="Скачать всю таблицу в Excel (CSV)"
                   >
                     {downloadFormat === 'csv' ? <Check className="w-4 h-4 text-white" /> : <Download className="w-4 h-4 text-white" />}
-                    <span>{downloadFormat === 'csv' ? 'Скачано!' : 'Скачать Excel / CSV'}</span>
+                    <span>{downloadFormat === 'csv' ? 'Скачано!' : 'CSV / Excel'}</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={downloadTableTxt}
-                    className="flex items-center gap-2 px-3.5 py-2.5 bg-[#030919] hover:bg-[#07153a] border border-blue-500/30 hover:border-blue-400/50 text-slate-200 hover:text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer shadow-inner active:scale-95"
+                    className="flex items-center justify-center gap-1.5 px-3 sm:px-3.5 py-2.5 bg-[#030919] hover:bg-[#07153a] border border-blue-500/30 hover:border-blue-400/50 text-slate-200 hover:text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer shadow-inner active:scale-95"
                     title="Скачать подробный текстовый отчет с прогнозами"
                   >
                     {downloadFormat === 'txt' ? <Check className="w-4 h-4 text-sky-400" /> : <FileText className="w-4 h-4 text-sky-400" />}
@@ -1040,7 +1043,7 @@ ${items}
                   <button
                     type="button"
                     onClick={copyExpress}
-                    className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 hover:from-blue-500 hover:via-indigo-500 hover:to-sky-400 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-blue-500/20 cursor-pointer active:scale-95"
+                    className="col-span-2 sm:col-span-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 hover:from-blue-500 hover:via-indigo-500 hover:to-sky-400 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-blue-500/20 cursor-pointer active:scale-95"
                   >
                     {expressCopied ? <Check className="w-4 h-4" /> : <Zap className="w-4 h-4" />}
                     <span>{expressCopied ? 'Скопировано!' : 'Собрать экспресс'}</span>
@@ -1049,44 +1052,44 @@ ${items}
               </div>
 
               {/* Stats badges */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="sapphire-inner-card p-4 rounded-2xl text-center">
-                  <div className="text-xs text-slate-400 font-medium">Матчей изучено</div>
-                  <div className="text-2xl font-brand font-bold text-white mt-1 font-mono-data">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+                <div className="sapphire-inner-card p-3 sm:p-4 rounded-xl sm:rounded-2xl text-center">
+                  <div className="text-[11px] sm:text-xs text-slate-400 font-medium">Матчей изучено</div>
+                  <div className="text-xl sm:text-2xl font-brand font-bold text-white mt-0.5 sm:mt-1 font-mono-data">
                     {data.brotherSummary.matchesAnalyzedTotal}
                   </div>
-                  <div className="text-[10px] text-slate-500 mt-0.5">
+                  <div className="text-[9px] sm:text-[10px] text-slate-500 mt-0.5 truncate">
                     {data.brotherSummary.userFilterQuery ? 'Только запрошенные' : '100% сетки'}
                   </div>
                 </div>
 
-                <div className="sapphire-inner-card p-4 rounded-2xl text-center">
-                  <div className="text-xs text-slate-400 font-medium">Прошло в таблицу</div>
-                  <div className="text-2xl font-brand font-bold text-sky-400 mt-1 font-mono-data">
+                <div className="sapphire-inner-card p-3 sm:p-4 rounded-xl sm:rounded-2xl text-center">
+                  <div className="text-[11px] sm:text-xs text-slate-400 font-medium">Прошло в таблицу</div>
+                  <div className="text-xl sm:text-2xl font-brand font-bold text-sky-400 mt-0.5 sm:mt-1 font-mono-data">
                     {filteredMatches.length}
                   </div>
-                  <div className="text-[10px] text-sky-400/80 mt-0.5">Строго ≥ {confidenceFilter}%</div>
+                  <div className="text-[9px] sm:text-[10px] text-sky-400/80 mt-0.5">Строго ≥ {confidenceFilter}%</div>
                 </div>
 
-                <div className="sapphire-inner-card p-4 rounded-2xl text-center">
-                  <div className="text-xs text-slate-400 font-medium">Средняя вероятность</div>
-                  <div className="text-2xl font-brand font-bold text-blue-300 mt-1 font-mono-data">
+                <div className="sapphire-inner-card p-3 sm:p-4 rounded-xl sm:rounded-2xl text-center">
+                  <div className="text-[11px] sm:text-xs text-slate-400 font-medium">Ср. вероятность</div>
+                  <div className="text-xl sm:text-2xl font-brand font-bold text-blue-300 mt-0.5 sm:mt-1 font-mono-data">
                     {data.brotherSummary.averageConfidence}%
                   </div>
-                  <div className="text-[10px] text-blue-300/80 mt-0.5">Высокая точность</div>
+                  <div className="text-[9px] sm:text-[10px] text-blue-300/80 mt-0.5">Высокая точность</div>
                 </div>
 
-                <div className="sapphire-inner-card p-4 rounded-2xl text-center">
-                  <div className="text-xs text-slate-400 font-medium">Статус отбора</div>
-                  <div className="text-2xl font-brand font-bold text-sky-300 mt-1">Строгий</div>
-                  <div className="text-[10px] text-sky-300/80 mt-0.5">Без сомнительных</div>
+                <div className="sapphire-inner-card p-3 sm:p-4 rounded-xl sm:rounded-2xl text-center">
+                  <div className="text-[11px] sm:text-xs text-slate-400 font-medium">Статус отбора</div>
+                  <div className="text-xl sm:text-2xl font-brand font-bold text-sky-300 mt-0.5 sm:mt-1">Строгий</div>
+                  <div className="text-[9px] sm:text-[10px] text-sky-300/80 mt-0.5">Без сомнительных</div>
                 </div>
               </div>
 
               {/* Tip block */}
-              <div className="sapphire-inner-card border-l-2 border-l-sky-400 p-4 rounded-2xl text-xs text-slate-300 flex items-start gap-3">
+              <div className="sapphire-inner-card border-l-2 border-l-sky-400 p-3.5 sm:p-4 rounded-xl sm:rounded-2xl text-xs text-slate-300 flex items-start gap-2.5 sm:gap-3">
                 <Sparkles className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
-                <div>
+                <div className="leading-relaxed">
                   <span className="font-bold text-white">Совет Брата: </span>
                   {data.brotherSummary.brotherTip}
                 </div>
@@ -1094,50 +1097,61 @@ ${items}
             </div>
 
             {/* Filter and Table Tools */}
-            <div className="space-y-3">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-[#030919]/95 border border-blue-500/25 p-4 rounded-2xl">
-                <div className="flex flex-wrap items-center gap-3">
-                  <div className="flex items-center gap-2.5">
-                    <FileSpreadsheet className="w-4 h-4 text-sky-400" />
-                    <span className="font-bold text-white text-sm">
-                      Таблица отобранных прогнозов ({filteredMatches.length} матчей)
+            <div className="space-y-2.5 sm:space-y-3">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-[#030919]/95 border border-blue-500/25 p-3.5 sm:p-4 rounded-2xl">
+                {/* Title + Mode switch */}
+                <div className="flex items-center justify-between gap-2.5 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <FileSpreadsheet className="w-4 h-4 text-sky-400 shrink-0" />
+                    <span className="font-bold text-white text-xs sm:text-sm">
+                      Отобранные события ({filteredMatches.length})
                     </span>
-                    <span className="text-xs text-slate-400 hidden sm:inline">
-                      • Строго ≥ 80% • По лигам
+                    <span className="text-xs text-slate-400 hidden lg:inline">
+                      • По лигам
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-1.5 sm:border-l sm:border-blue-500/20 sm:pl-3">
+                  {/* Mode switcher: Cards vs Table */}
+                  <div className="flex items-center bg-[#02050E] p-1 rounded-xl border border-blue-500/25">
                     <button
                       type="button"
-                      onClick={downloadTableCsv}
-                      title="Скачать всю таблицу в Excel / CSV"
-                      className="flex items-center gap-1 px-2.5 py-1 bg-emerald-950/70 hover:bg-emerald-900/80 border border-emerald-500/40 text-emerald-300 hover:text-white rounded-lg text-xs font-semibold transition-all cursor-pointer shadow-inner active:scale-95"
+                      onClick={() => setViewMode('cards')}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        viewMode === 'cards'
+                          ? 'bg-blue-600 text-white shadow-sm'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                      title="Вид: Мобильные карточки"
                     >
-                      {downloadFormat === 'csv' ? <Check className="w-3.5 h-3.5" /> : <Download className="w-3.5 h-3.5" />}
-                      <span>{downloadFormat === 'csv' ? 'Скачано!' : 'CSV / Excel'}</span>
+                      <LayoutGrid className="w-3.5 h-3.5" />
+                      <span>Карточки</span>
                     </button>
                     <button
                       type="button"
-                      onClick={downloadTableTxt}
-                      title="Скачать отчет в TXT"
-                      className="flex items-center gap-1 px-2.5 py-1 bg-[#030919] hover:bg-blue-950/60 border border-blue-500/30 text-slate-300 hover:text-white rounded-lg text-xs font-semibold transition-all cursor-pointer shadow-inner active:scale-95"
+                      onClick={() => setViewMode('table')}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        viewMode === 'table'
+                          ? 'bg-blue-600 text-white shadow-sm'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                      title="Вид: Таблица"
                     >
-                      {downloadFormat === 'txt' ? <Check className="w-3.5 h-3.5 text-sky-400" /> : <FileText className="w-3.5 h-3.5 text-sky-400" />}
-                      <span>TXT</span>
+                      <List className="w-3.5 h-3.5" />
+                      <span>Таблица</span>
                     </button>
                   </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-3">
-                  <div className="relative min-w-[200px] flex-1 sm:flex-initial">
+                {/* Search & Threshold Controls */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
+                  <div className="relative flex-1 sm:min-w-[200px]">
                     <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                     <input
                       type="text"
                       value={tableSearchQuery}
                       onChange={(e) => setTableSearchQuery(e.target.value)}
                       placeholder="Поиск по команде или лиге..."
-                      className="w-full bg-[#02050E] border border-blue-500/25 rounded-xl pl-8 pr-7 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-400 transition-colors"
+                      className="w-full bg-[#02050E] border border-blue-500/25 rounded-xl pl-8 pr-7 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-400 transition-colors"
                     />
                     {tableSearchQuery && (
                       <button
@@ -1150,15 +1164,15 @@ ${items}
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2 text-xs">
-                    <span className="text-slate-400 hidden sm:inline">Порог:</span>
+                  <div className="flex items-center justify-between sm:justify-start gap-2 text-xs">
+                    <span className="text-slate-400 text-xs shrink-0">Порог:</span>
                     <div className="flex bg-[#02050E] p-1 rounded-xl border border-blue-500/25">
                       {[80, 85, 90].map((val) => (
                         <button
                           key={val}
                           type="button"
                           onClick={() => setConfidenceFilter(val)}
-                          className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          className={`px-2.5 sm:px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                             confidenceFilter === val
                               ? 'bg-blue-600 text-white shadow-sm font-semibold'
                               : 'text-slate-400 hover:text-white'
@@ -1174,10 +1188,10 @@ ${items}
 
               {/* League Filter Chips Bar */}
               {availableLeagues.length > 1 && (
-                <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar px-1">
-                  <span className="text-xs text-slate-400 font-bold uppercase tracking-wider shrink-0 flex items-center gap-1.5 pl-0.5">
+                <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 no-scrollbar px-0.5">
+                  <span className="text-[11px] sm:text-xs text-slate-400 font-bold uppercase tracking-wider shrink-0 flex items-center gap-1 pl-0.5">
                     <Trophy className="w-3.5 h-3.5 text-sky-400" />
-                    <span>Лиги:</span>
+                    <span className="hidden xs:inline">Лиги:</span>
                   </span>
                   <button
                     type="button"
@@ -1211,243 +1225,458 @@ ${items}
               )}
             </div>
 
-            {/* REQUIRED TABLE (Clean aesthetic styling) */}
-            <div className="overflow-x-auto rounded-3xl border border-blue-500/25 bg-[#030819]/95 shadow-2xl backdrop-blur-2xl">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-blue-500/20 bg-[#020510]/95 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                    <th className="py-4 px-4 sm:px-6">1. Название матча</th>
-                    <th className="py-4 px-4">2. Время начала</th>
-                    <th className="py-4 px-4 sm:px-6">3. Прогнозируемые события</th>
-                    <th className="py-4 px-4 text-center">4. Вероятность</th>
-                    <th className="py-4 px-4 sm:px-6 min-w-[320px]">5. Обоснование почему</th>
-                    <th className="py-4 px-4 text-center">Действие</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-blue-500/15 text-sm">
-                  {filteredMatches.map((match, idx) => {
-                    const isExpanded = expandedReasoning[match.id];
-                    const currentLeague = normalizeLeagueName(match.league);
-                    const prevLeague = idx > 0 ? normalizeLeagueName(filteredMatches[idx - 1].league) : null;
-                    const isNewLeague = currentLeague !== prevLeague;
-                    const leagueMatchCount = filteredMatches.filter(
-                      (m) => normalizeLeagueName(m.league) === currentLeague
-                    ).length;
+            {/* VIEW MODE 1: MOBILE CARDS VIEW (Optimized for phones & tablets) */}
+            {viewMode === 'cards' && (
+              <div className="space-y-4">
+                {filteredMatches.map((match, idx) => {
+                  const isExpanded = expandedReasoning[match.id];
+                  const currentLeague = normalizeLeagueName(match.league);
+                  const prevLeague = idx > 0 ? normalizeLeagueName(filteredMatches[idx - 1].league) : null;
+                  const isNewLeague = currentLeague !== prevLeague;
+                  const leagueMatchCount = filteredMatches.filter(
+                    (m) => normalizeLeagueName(m.league) === currentLeague
+                  ).length;
 
-                    return (
-                      <React.Fragment key={match.id}>
-                        {isNewLeague && (
-                          <tr className="bg-gradient-to-r from-[#051336] via-[#091f52] to-[#030919] border-y border-blue-400/30">
-                            <td colSpan={6} className="py-2.5 px-4 sm:px-6">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2.5">
-                                  <div className="w-6 h-6 rounded-lg bg-sky-500/20 border border-sky-400/40 flex items-center justify-center text-sky-300">
-                                    <Trophy className="w-3.5 h-3.5" />
-                                  </div>
-                                  <span className="font-brand font-bold text-white text-xs sm:text-sm tracking-wide uppercase">
-                                    {currentLeague}
-                                  </span>
-                                </div>
-                                <span className="text-[11px] text-sky-200/90 font-mono-data font-semibold bg-blue-900/60 px-2.5 py-0.5 rounded-lg border border-blue-400/30">
-                                  {leagueMatchCount} {leagueMatchCount === 1 ? 'матч' : leagueMatchCount < 5 ? 'матча' : 'матчей'}
-                                </span>
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                        <tr className="hover:bg-blue-900/15 transition-colors group">
-                        {/* 1. Название матча */}
-                        <td className="py-5 px-4 sm:px-6 align-top">
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <div className="text-[10px] font-semibold text-blue-400 uppercase tracking-wider">
-                                {match.league}
-                              </div>
-                              {match.source && (
-                                <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-950/70 border border-emerald-500/35 text-emerald-300 font-medium">
-                                  ✓ {match.source}
-                                </span>
+                  return (
+                    <React.Fragment key={match.id}>
+                      {/* League separator banner */}
+                      {isNewLeague && (
+                        <div className="flex items-center justify-between p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-gradient-to-r from-[#051336] via-[#091f52] to-[#030919] border border-blue-400/30 mt-4 first:mt-0 shadow-lg">
+                          <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+                            <div className="w-6 h-6 rounded-lg bg-sky-500/20 border border-sky-400/40 flex items-center justify-center text-sky-300 shrink-0">
+                              <Trophy className="w-3.5 h-3.5" />
+                            </div>
+                            <span className="font-brand font-bold text-white text-xs sm:text-sm tracking-wide uppercase truncate">
+                              {currentLeague}
+                            </span>
+                          </div>
+                          <span className="text-[11px] text-sky-200 font-mono-data font-semibold bg-blue-900/60 px-2 py-0.5 rounded-lg border border-blue-400/30 shrink-0 ml-2">
+                            {leagueMatchCount} {leagueMatchCount === 1 ? 'матч' : leagueMatchCount < 5 ? 'матча' : 'матчей'}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Match Card */}
+                      <div className="sapphire-panel rounded-2xl p-4 sm:p-6 space-y-3.5 border border-blue-500/25 hover:border-blue-400/40 transition-all">
+                        {/* Top Bar: Time, Source, Probability, Copy */}
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <div className="flex items-center gap-2">
+                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#030919] border border-blue-500/30 text-slate-200 font-mono-data text-xs font-bold shadow-inner">
+                              <Clock className="w-3.5 h-3.5 text-sky-400" />
+                              <span>{match.time}</span>
+                            </div>
+                            {match.source && (
+                              <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-950/70 border border-emerald-500/35 text-emerald-300 font-medium">
+                                ✓ {match.source}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-bold text-sky-300 px-2.5 py-1 rounded-lg bg-blue-950/80 border border-blue-500/30 font-mono-data">
+                              {Math.max(...match.predictions.map((p) => p.probability))}%
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => copyMatchForecast(match)}
+                              title="Скопировать прогноз матча"
+                              className="p-1.5 sm:p-2 rounded-lg bg-[#030919] hover:bg-blue-900/40 border border-blue-500/25 text-slate-300 hover:text-white transition-all cursor-pointer shadow-inner active:scale-95"
+                            >
+                              {copiedId === match.id ? (
+                                <Check className="w-4 h-4 text-sky-400" />
+                              ) : (
+                                <Copy className="w-4 h-4" />
                               )}
-                            </div>
-                            <div className="font-bold text-white text-base group-hover:text-sky-300 transition-colors">
-                              {match.matchName}
-                            </div>
-                            <div className="text-xs text-slate-400 flex items-center gap-1.5">
-                              <span>{match.homeTeam}</span>
-                              <span className="text-slate-600">vs</span>
-                              <span>{match.awayTeam}</span>
-                            </div>
+                            </button>
                           </div>
-                        </td>
+                        </div>
 
-                        {/* 2. Время начала */}
-                        <td className="py-5 px-4 align-top">
-                          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#030919] border border-blue-500/25 text-slate-200 font-mono-data text-xs font-bold shadow-inner">
-                            <Clock className="w-3.5 h-3.5 text-sky-400" />
-                            <span>{match.time}</span>
+                        {/* Match Title & Teams */}
+                        <div>
+                          <div className="text-[10px] font-semibold text-blue-400 uppercase tracking-wider">
+                            {match.league}
                           </div>
-                        </td>
+                          <h3 className="font-bold text-base sm:text-lg text-white leading-snug">
+                            {match.matchName}
+                          </h3>
+                          <div className="text-xs text-slate-400 flex items-center gap-1.5 mt-0.5">
+                            <span className="text-slate-300">{match.homeTeam}</span>
+                            <span className="text-slate-600 font-semibold">vs</span>
+                            <span className="text-slate-300">{match.awayTeam}</span>
+                          </div>
+                        </div>
 
-                        {/* 3. Прогнозируемые события */}
-                        <td className="py-5 px-4 sm:px-6 align-top">
-                          <div className="space-y-2.5">
-                            {match.predictions.map((p, pIdx) => {
-                              const isCombo =
-                                p.isCombo === true ||
-                                (p.tag && p.tag.toLowerCase().includes('комбо')) ||
-                                p.event.toLowerCase().includes('комбо') ||
-                                (p.comboItems && p.comboItems.length > 1);
+                        {/* Predictions (Combo & Regular) */}
+                        <div className="space-y-2">
+                          {match.predictions.map((p, pIdx) => {
+                            const isCombo =
+                              p.isCombo === true ||
+                              (p.tag && p.tag.toLowerCase().includes('комбо')) ||
+                              p.event.toLowerCase().includes('комбо') ||
+                              (p.comboItems && p.comboItems.length > 1);
 
-                              if (isCombo) {
-                                return (
-                                  <div
-                                    key={pIdx}
-                                    className="p-3 rounded-2xl bg-gradient-to-br from-amber-950/40 via-[#0a1024] to-[#040816] border border-amber-500/40 shadow-[0_4px_20px_-4px_rgba(245,158,11,0.18)] space-y-2 transition-all hover:border-amber-400/60"
-                                  >
-                                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[10px] font-bold uppercase tracking-wider">
-                                        <Flame className="w-3 h-3 text-amber-400 fill-amber-400" />
-                                        <span>КОМБО-СТАВКА</span>
-                                      </span>
-                                      <span className="text-xs font-bold text-amber-300 px-2.5 py-0.5 rounded-lg bg-amber-950/80 border border-amber-500/40 font-mono-data">
-                                        {p.probability}%
-                                      </span>
-                                    </div>
-
-                                    <div className="font-bold text-white text-xs sm:text-sm leading-snug">
-                                      {p.event}
-                                    </div>
-
-                                    {/* Sub-items / Components of the combo (e.g. Победа 1, обе забьют, фора 1) */}
-                                    {p.comboItems && p.comboItems.length > 0 && (
-                                      <div className="flex flex-wrap gap-1.5 pt-0.5">
-                                        {p.comboItems.map((item, iIdx) => (
-                                          <span
-                                            key={iIdx}
-                                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#030919] border border-amber-400/30 text-amber-200 text-[10px] font-medium"
-                                          >
-                                            <span className="text-amber-400 font-bold">✓</span>
-                                            <span>{item}</span>
-                                          </span>
-                                        ))}
-                                      </div>
-                                    )}
-
-                                    <div className="text-[10px] text-slate-400 flex items-center justify-between pt-1 border-t border-amber-500/20">
-                                      <span className="text-amber-300 font-bold font-mono-data">
-                                        Общий кэф ~{p.estimatedOdds}
-                                      </span>
-                                      <span className="text-amber-400/80 font-medium">Высокая синергия</span>
-                                    </div>
-                                  </div>
-                                );
-                              }
-
+                            if (isCombo) {
                               return (
                                 <div
                                   key={pIdx}
-                                  className="p-2.5 rounded-xl bg-[#030919] border border-blue-500/20 flex items-center justify-between gap-3 shadow-inner"
+                                  className="p-3 sm:p-3.5 rounded-xl bg-gradient-to-br from-amber-950/40 via-[#0a1024] to-[#040816] border border-amber-500/40 shadow-[0_4px_20px_-4px_rgba(245,158,11,0.18)] space-y-2"
                                 >
-                                  <div className="space-y-0.5">
-                                    <div className="font-bold text-white text-xs sm:text-sm">
-                                      {p.event}
-                                    </div>
-                                    <div className="text-[10px] text-slate-400 flex items-center gap-1.5">
-                                      <span className="text-sky-300 font-semibold font-mono-data">
-                                        Кэф ~{p.estimatedOdds}
-                                      </span>
-                                      <span>•</span>
-                                      <span className="text-blue-400 font-medium">{p.tag || 'Железобетон'}</span>
-                                    </div>
+                                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[10px] font-bold uppercase tracking-wider">
+                                      <Flame className="w-3 h-3 text-amber-400 fill-amber-400" />
+                                      <span>КОМБО-СТАВКА</span>
+                                    </span>
+                                    <span className="text-xs font-bold text-amber-300 px-2 py-0.5 rounded-lg bg-amber-950/80 border border-amber-500/40 font-mono-data">
+                                      {p.probability}%
+                                    </span>
                                   </div>
-                                  <span className="text-xs font-bold text-sky-300 px-2.5 py-0.5 rounded-lg bg-blue-950/80 border border-blue-500/30 font-mono-data">
-                                    {p.probability}%
-                                  </span>
+
+                                  <div className="font-bold text-white text-xs sm:text-sm leading-snug">
+                                    {p.event}
+                                  </div>
+
+                                  {/* Combo components breakdown */}
+                                  {p.comboItems && p.comboItems.length > 0 && (
+                                    <div className="flex flex-wrap gap-1.5 pt-0.5">
+                                      {p.comboItems.map((item, iIdx) => (
+                                        <span
+                                          key={iIdx}
+                                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#030919] border border-amber-400/30 text-amber-200 text-[10px] font-medium"
+                                        >
+                                          <span className="text-amber-400 font-bold">✓</span>
+                                          <span>{item}</span>
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
+
+                                  <div className="text-[10px] text-slate-400 flex items-center justify-between pt-1 border-t border-amber-500/20">
+                                    <span className="text-amber-300 font-bold font-mono-data">
+                                      Кэф ~{p.estimatedOdds}
+                                    </span>
+                                    <span className="text-amber-400/80 font-medium">Высокая синергия</span>
+                                  </div>
                                 </div>
                               );
-                            })}
-                          </div>
-                        </td>
+                            }
 
-                        {/* 4. Вероятность */}
-                        <td className="py-5 px-4 text-center align-top">
-                          <div className="space-y-1">
-                            <span className="inline-block px-3 py-1.5 rounded-xl font-bold text-sm bg-blue-950/80 border border-blue-500/30 text-sky-300 font-mono-data">
-                              {Math.max(...match.predictions.map((p) => p.probability))}%
-                            </span>
-                            <div className="text-[10px] text-blue-400/80 font-bold uppercase tracking-wider">
-                              Железобетон
-                            </div>
-                          </div>
-                        </td>
-
-                        {/* 5. Обоснование почему */}
-                        <td className="py-5 px-4 sm:px-6 align-top">
-                          <div className="space-y-2.5">
-                            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-                              {isExpanded
-                                ? match.reasoning
-                                : `${match.reasoning.slice(0, 160)}...`}
-                            </p>
-
-                            {match.reasoning.length > 160 && (
-                              <button
-                                type="button"
-                                onClick={() => toggleReasoning(match.id)}
-                                className="text-[11px] text-sky-400 hover:text-sky-300 font-bold underline cursor-pointer"
+                            return (
+                              <div
+                                key={pIdx}
+                                className="p-2.5 sm:p-3 rounded-xl bg-[#030919] border border-blue-500/20 flex items-center justify-between gap-3 shadow-inner"
                               >
-                                {isExpanded ? 'Свернуть' : 'Подробнее'}
-                              </button>
-                            )}
-
-                            {match.keyStats && match.keyStats.length > 0 && (
-                              <div className="space-y-1 pt-1.5 border-t border-blue-500/15">
-                                {(isExpanded ? match.keyStats : match.keyStats.slice(0, 1)).map(
-                                  (stat, sIdx) => (
-                                    <div
-                                      key={sIdx}
-                                      className="text-[11px] text-slate-400 flex items-start gap-1.5"
-                                    >
-                                      <span className="text-sky-400 font-bold">•</span>
-                                      <span>{stat}</span>
-                                    </div>
-                                  )
-                                )}
+                                <div className="space-y-0.5">
+                                  <div className="font-bold text-white text-xs sm:text-sm">
+                                    {p.event}
+                                  </div>
+                                  <div className="text-[10px] text-slate-400 flex items-center gap-1.5">
+                                    <span className="text-sky-300 font-semibold font-mono-data">
+                                      Кэф ~{p.estimatedOdds}
+                                    </span>
+                                    <span>•</span>
+                                    <span className="text-blue-400 font-medium">{p.tag || 'Железобетон'}</span>
+                                  </div>
+                                </div>
+                                <span className="text-xs font-bold text-sky-300 px-2 py-0.5 rounded-lg bg-blue-950/80 border border-blue-500/30 font-mono-data shrink-0">
+                                  {p.probability}%
+                                </span>
                               </div>
-                            )}
+                            );
+                          })}
+                        </div>
 
-                            {/* Verdict */}
-                            <div className="bg-[#030919] border border-blue-500/20 border-l-2 border-l-sky-400 rounded-xl p-3 text-xs text-slate-300 flex items-start gap-2 shadow-inner">
-                              <span className="font-extrabold text-sky-300 shrink-0">
-                                Вердикт:
-                              </span>
-                              <span className="italic text-slate-300">{match.brotherVerdict}</span>
+                        {/* Reasoning & Key Facts (Collapsible) */}
+                        <div className="pt-2 border-t border-blue-500/15 space-y-2">
+                          <p className="text-xs text-slate-300 leading-relaxed">
+                            {isExpanded
+                              ? match.reasoning
+                              : `${match.reasoning.slice(0, 140)}...`}
+                          </p>
+
+                          {match.reasoning.length > 140 && (
+                            <button
+                              type="button"
+                              onClick={() => toggleReasoning(match.id)}
+                              className="text-xs text-sky-400 hover:text-sky-300 font-bold underline cursor-pointer"
+                            >
+                              {isExpanded ? 'Свернуть ▲' : 'Подробнее о матче ▼'}
+                            </button>
+                          )}
+
+                          {isExpanded && match.keyStats && match.keyStats.length > 0 && (
+                            <div className="space-y-1 pt-1.5 border-t border-blue-500/15">
+                              {match.keyStats.map((stat, sIdx) => (
+                                <div
+                                  key={sIdx}
+                                  className="text-[11px] text-slate-400 flex items-start gap-1.5"
+                                >
+                                  <span className="text-sky-400 font-bold">•</span>
+                                  <span>{stat}</span>
+                                </div>
+                              ))}
                             </div>
-                          </div>
-                        </td>
+                          )}
 
-                        {/* Action */}
-                        <td className="py-5 px-4 text-center align-top">
-                          <button
-                            type="button"
-                            onClick={() => copyMatchForecast(match)}
-                            title="Скопировать прогноз матча"
-                            className="p-2.5 rounded-xl bg-[#030919] hover:bg-blue-900/40 border border-blue-500/25 text-slate-300 hover:text-white transition-all cursor-pointer shadow-inner"
-                          >
-                            {copiedId === match.id ? (
-                              <Check className="w-4 h-4 text-sky-400" />
-                            ) : (
-                              <Copy className="w-4 h-4" />
-                            )}
-                          </button>
-                        </td>
-                      </tr>
+                          {/* Verdict */}
+                          <div className="bg-[#030919] border border-blue-500/20 border-l-2 border-l-sky-400 rounded-xl p-2.5 sm:p-3 text-xs text-slate-300 flex items-start gap-2 shadow-inner mt-2">
+                            <span className="font-extrabold text-sky-300 shrink-0">
+                              Вердикт:
+                            </span>
+                            <span className="italic text-slate-300">{match.brotherVerdict}</span>
+                          </div>
+                        </div>
+
+                      </div>
                     </React.Fragment>
                   );
                 })}
-                </tbody>
-              </table>
-            </div>
+              </div>
+            )}
+
+            {/* VIEW MODE 2: TABLE VIEW (Dense desktop view, with horizontal swipe indicator) */}
+            {viewMode === 'table' && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-[11px] text-slate-400 px-1 md:hidden">
+                  <span>← Прокручивайте таблицу вправо для просмотра всех колонок →</span>
+                </div>
+
+                <div className="overflow-x-auto rounded-2xl sm:rounded-3xl border border-blue-500/25 bg-[#030819]/95 shadow-2xl backdrop-blur-2xl">
+                  <table className="w-full text-left border-collapse min-w-[760px]">
+                    <thead>
+                      <tr className="border-b border-blue-500/20 bg-[#020510]/95 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                        <th className="py-4 px-4 sm:px-6">1. Название матча</th>
+                        <th className="py-4 px-3 sm:px-4">2. Время начала</th>
+                        <th className="py-4 px-4 sm:px-6 min-w-[220px]">3. Прогнозируемые события</th>
+                        <th className="py-4 px-3 sm:px-4 text-center">4. Вероятность</th>
+                        <th className="py-4 px-4 sm:px-6 min-w-[280px]">5. Обоснование почему</th>
+                        <th className="py-4 px-3 sm:px-4 text-center">Действие</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-blue-500/15 text-sm">
+                      {filteredMatches.map((match, idx) => {
+                        const isExpanded = expandedReasoning[match.id];
+                        const currentLeague = normalizeLeagueName(match.league);
+                        const prevLeague = idx > 0 ? normalizeLeagueName(filteredMatches[idx - 1].league) : null;
+                        const isNewLeague = currentLeague !== prevLeague;
+                        const leagueMatchCount = filteredMatches.filter(
+                          (m) => normalizeLeagueName(m.league) === currentLeague
+                        ).length;
+
+                        return (
+                          <React.Fragment key={match.id}>
+                            {isNewLeague && (
+                              <tr className="bg-gradient-to-r from-[#051336] via-[#091f52] to-[#030919] border-y border-blue-400/30">
+                                <td colSpan={6} className="py-2.5 px-4 sm:px-6">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2.5">
+                                      <div className="w-6 h-6 rounded-lg bg-sky-500/20 border border-sky-400/40 flex items-center justify-center text-sky-300">
+                                        <Trophy className="w-3.5 h-3.5" />
+                                      </div>
+                                      <span className="font-brand font-bold text-white text-xs sm:text-sm tracking-wide uppercase">
+                                        {currentLeague}
+                                      </span>
+                                    </div>
+                                    <span className="text-[11px] text-sky-200/90 font-mono-data font-semibold bg-blue-900/60 px-2.5 py-0.5 rounded-lg border border-blue-400/30">
+                                      {leagueMatchCount} {leagueMatchCount === 1 ? 'матч' : leagueMatchCount < 5 ? 'матча' : 'матчей'}
+                                    </span>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                            <tr className="hover:bg-blue-900/15 transition-colors group">
+                            {/* 1. Название матча */}
+                            <td className="py-4 sm:py-5 px-4 sm:px-6 align-top">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <div className="text-[10px] font-semibold text-blue-400 uppercase tracking-wider">
+                                    {match.league}
+                                  </div>
+                                  {match.source && (
+                                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-950/70 border border-emerald-500/35 text-emerald-300 font-medium">
+                                      ✓ {match.source}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="font-bold text-white text-sm sm:text-base group-hover:text-sky-300 transition-colors">
+                                  {match.matchName}
+                                </div>
+                                <div className="text-xs text-slate-400 flex items-center gap-1.5">
+                                  <span>{match.homeTeam}</span>
+                                  <span className="text-slate-600">vs</span>
+                                  <span>{match.awayTeam}</span>
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* 2. Время начала */}
+                            <td className="py-4 sm:py-5 px-3 sm:px-4 align-top">
+                              <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#030919] border border-blue-500/25 text-slate-200 font-mono-data text-xs font-bold shadow-inner">
+                                <Clock className="w-3.5 h-3.5 text-sky-400" />
+                                <span>{match.time}</span>
+                              </div>
+                            </td>
+
+                            {/* 3. Прогнозируемые события */}
+                            <td className="py-4 sm:py-5 px-4 sm:px-6 align-top">
+                              <div className="space-y-2.5">
+                                {match.predictions.map((p, pIdx) => {
+                                  const isCombo =
+                                    p.isCombo === true ||
+                                    (p.tag && p.tag.toLowerCase().includes('комбо')) ||
+                                    p.event.toLowerCase().includes('комбо') ||
+                                    (p.comboItems && p.comboItems.length > 1);
+
+                                  if (isCombo) {
+                                    return (
+                                      <div
+                                        key={pIdx}
+                                        className="p-3 rounded-2xl bg-gradient-to-br from-amber-950/40 via-[#0a1024] to-[#040816] border border-amber-500/40 shadow-[0_4px_20px_-4px_rgba(245,158,11,0.18)] space-y-2 transition-all hover:border-amber-400/60"
+                                      >
+                                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[10px] font-bold uppercase tracking-wider">
+                                            <Flame className="w-3 h-3 text-amber-400 fill-amber-400" />
+                                            <span>КОМБО-СТАВКА</span>
+                                          </span>
+                                          <span className="text-xs font-bold text-amber-300 px-2.5 py-0.5 rounded-lg bg-amber-950/80 border border-amber-500/40 font-mono-data">
+                                            {p.probability}%
+                                          </span>
+                                        </div>
+
+                                        <div className="font-bold text-white text-xs sm:text-sm leading-snug">
+                                          {p.event}
+                                        </div>
+
+                                        {p.comboItems && p.comboItems.length > 0 && (
+                                          <div className="flex flex-wrap gap-1.5 pt-0.5">
+                                            {p.comboItems.map((item, iIdx) => (
+                                              <span
+                                                key={iIdx}
+                                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#030919] border border-amber-400/30 text-amber-200 text-[10px] font-medium"
+                                              >
+                                                <span className="text-amber-400 font-bold">✓</span>
+                                                <span>{item}</span>
+                                              </span>
+                                            ))}
+                                          </div>
+                                        )}
+
+                                        <div className="text-[10px] text-slate-400 flex items-center justify-between pt-1 border-t border-amber-500/20">
+                                          <span className="text-amber-300 font-bold font-mono-data">
+                                            Общий кэф ~{p.estimatedOdds}
+                                          </span>
+                                          <span className="text-amber-400/80 font-medium">Высокая синергия</span>
+                                        </div>
+                                      </div>
+                                    );
+                                  }
+
+                                  return (
+                                    <div
+                                      key={pIdx}
+                                      className="p-2.5 rounded-xl bg-[#030919] border border-blue-500/20 flex items-center justify-between gap-3 shadow-inner"
+                                    >
+                                      <div className="space-y-0.5">
+                                        <div className="font-bold text-white text-xs sm:text-sm">
+                                          {p.event}
+                                        </div>
+                                        <div className="text-[10px] text-slate-400 flex items-center gap-1.5">
+                                          <span className="text-sky-300 font-semibold font-mono-data">
+                                            Кэф ~{p.estimatedOdds}
+                                          </span>
+                                          <span>•</span>
+                                          <span className="text-blue-400 font-medium">{p.tag || 'Железобетон'}</span>
+                                        </div>
+                                      </div>
+                                      <span className="text-xs font-bold text-sky-300 px-2.5 py-0.5 rounded-lg bg-blue-950/80 border border-blue-500/30 font-mono-data">
+                                        {p.probability}%
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </td>
+
+                            {/* 4. Вероятность */}
+                            <td className="py-4 sm:py-5 px-3 sm:px-4 text-center align-top">
+                              <div className="space-y-1">
+                                <span className="inline-block px-3 py-1.5 rounded-xl font-bold text-sm bg-blue-950/80 border border-blue-500/30 text-sky-300 font-mono-data">
+                                  {Math.max(...match.predictions.map((p) => p.probability))}%
+                                </span>
+                                <div className="text-[10px] text-blue-400/80 font-bold uppercase tracking-wider">
+                                  Железобетон
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* 5. Обоснование почему */}
+                            <td className="py-4 sm:py-5 px-4 sm:px-6 align-top">
+                              <div className="space-y-2.5">
+                                <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                                  {isExpanded
+                                    ? match.reasoning
+                                    : `${match.reasoning.slice(0, 160)}...`}
+                                </p>
+
+                                {match.reasoning.length > 160 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleReasoning(match.id)}
+                                    className="text-[11px] text-sky-400 hover:text-sky-300 font-bold underline cursor-pointer"
+                                  >
+                                    {isExpanded ? 'Свернуть' : 'Подробнее'}
+                                  </button>
+                                )}
+
+                                {match.keyStats && match.keyStats.length > 0 && (
+                                  <div className="space-y-1 pt-1.5 border-t border-blue-500/15">
+                                    {(isExpanded ? match.keyStats : match.keyStats.slice(0, 1)).map(
+                                      (stat, sIdx) => (
+                                        <div
+                                          key={sIdx}
+                                          className="text-[11px] text-slate-400 flex items-start gap-1.5"
+                                        >
+                                          <span className="text-sky-400 font-bold">•</span>
+                                          <span>{stat}</span>
+                                        </div>
+                                      )
+                                    )}
+                                  </div>
+                                )}
+
+                                {/* Verdict */}
+                                <div className="bg-[#030919] border border-blue-500/20 border-l-2 border-l-sky-400 rounded-xl p-3 text-xs text-slate-300 flex items-start gap-2 shadow-inner">
+                                  <span className="font-extrabold text-sky-300 shrink-0">
+                                    Вердикт:
+                                  </span>
+                                  <span className="italic text-slate-300">{match.brotherVerdict}</span>
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Action */}
+                            <td className="py-4 sm:py-5 px-3 sm:px-4 text-center align-top">
+                              <button
+                                type="button"
+                                onClick={() => copyMatchForecast(match)}
+                                title="Скопировать прогноз матча"
+                                className="p-2.5 rounded-xl bg-[#030919] hover:bg-blue-900/40 border border-blue-500/25 text-slate-300 hover:text-white transition-all cursor-pointer shadow-inner active:scale-95"
+                              >
+                                {copiedId === match.id ? (
+                                  <Check className="w-4 h-4 text-sky-400" />
+                                ) : (
+                                  <Copy className="w-4 h-4" />
+                                )}
+                              </button>
+                            </td>
+                          </tr>
+                        </React.Fragment>
+                      );
+                    })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
 
           </div>
         )}
